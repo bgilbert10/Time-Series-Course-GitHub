@@ -1,0 +1,482 @@
+---
+title: "Returns Distributions"
+author: "Ben Gilbert"
+date: "9/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Examples of Characterizing Returns Distributions
+
+* Skills covered:
+
+  - set working directory
+  - compute summary statistics with fBasics package
+  - t-tests: test mean return, skewness and kurtosis
+  - Jarque-Bera (JB) test
+  - Use cbind() function to create new data frame, give column names
+
+***
+
+### Define directory and load packages
+
+Load (and install if necessary) any packages that we want to use. If we want to define a working directory for this session, we can. 
+
+```{r pckges, eval=FALSE, message=FALSE}
+# install.packages("fBasics") # Remove the # sign to install this package if you 
+                              # have not already. Does a lot of basic stats.
+library(fBasics)              # tell R to use this package in this session.
+# install.packages("quantmod")
+library(quantmod)
+
+# Alternative way to load packages: use the pacman package:
+# if(!require(pacman))install.packages("pacman")
+# pacman::p_load(fBasics,quantmod)
+
+# set working directory, notice slashes go forward
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+```
+
+```{r echo=FALSE, message=FALSE}
+# install.packages("fBasics") # Remove the # sign to install this package if you 
+                              # have not already. Does a lot of basic stats.
+library(fBasics)              # tell R to use this package in this session.
+# install.packages("quantmod")
+library(quantmod)
+
+# Alternative way to load packages: use the pacman package:
+# if(!require(pacman))install.packages("pacman")
+# pacman::p_load(fBasics,quantmod)
+
+# set working directory, notice slashes go forward
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+```
+
+***
+
+### Pull Data from Yahoo!Finance and Investigate Returns
+
+* First investigate some market indices
+
+```{r}
+getSymbols("XLE",from="2000-01-03")
+# XLE is symbol for the SPDR Energy ETF
+
+dim(XLE) # see dimensions of dataset
+head(XLE) #see first six rows
+chartSeries(XLE,type=c("line"),theme="white",TA=NULL)
+
+# calculate various types of returns
+XLE.dsrtn = 100*dailyReturn(XLE,leading=FALSE,type='arithmetic') # daily simple return
+XLE.dlrtn = 100*dailyReturn(XLE,leading=FALSE,type='log') # daily log return
+XLE.msrtn = 100*monthlyReturn(XLE,leading=FALSE,type='arithmetic') # monthly simple return
+XLE.mlrtn = 100*monthlyReturn(XLE,leading=FALSE,type='log') # monthly log return
+
+chartSeries(XLE.dlrtn,type=c("line"),theme="white",TA=NULL)
+chartSeries(XLE.mlrtn,type=c("line"),theme="white",TA=NULL)
+
+getSymbols("SPY",from="2000-01-03") 
+# SPY is the symbol for the S&P 500 Index
+dim(SPY) # see dimensions of dataset
+head(SPY) #see first six rows
+SPY.dsrtn = 100*dailyReturn(SPY,leading=FALSE,type='arithmetic')
+SPY.dlrtn = 100*dailyReturn(SPY,leading=FALSE,type='log')
+SPY.msrtn = 100*monthlyReturn(SPY,leading=FALSE,type='arithmetic')
+SPY.mlrtn = 100*monthlyReturn(SPY,leading=FALSE,type='log')
+```
+
+* Now investigate some individual equities
+
+  - SRE (Sempra), BRK (Berkshire Hathaway), DUK (Duke Energy)
+
+```{r}
+getSymbols("SRE",from="2000-01-03") 
+dim(SRE) # see dimensions of dataset
+head(SRE) #see first six rows
+
+chartSeries(SRE,type=c("line"),theme="white",TA=NULL)
+SRE.dsrtn = 100*dailyReturn(SRE,leading=FALSE,type='arithmetic')
+SRE.dlrtn = 100*dailyReturn(SRE,leading=FALSE,type='log')
+SRE.msrtn = 100*monthlyReturn(SRE,leading=FALSE,type='arithmetic')
+SRE.mlrtn = 100*monthlyReturn(SRE,leading=FALSE,type='log')
+
+chartSeries(SRE.dlrtn,type=c("line"),theme="white",TA=NULL)
+chartSeries(SRE.mlrtn,type=c("line"),theme="white",TA=NULL)
+
+# Note the quotes around "BRK-B" and `BRK-B`. Dash in name requires this. 
+getSymbols("BRK-B",from="2000-01-03")  
+dim(`BRK-B`) 
+# notice that we have to use bracket quotes ` ` because of the dash in BRK-B
+head(`BRK-B`) 
+BRK.dsrtn = 100*dailyReturn(`BRK-B`,leading=FALSE,type='arithmetic')
+BRK.dlrtn = 100*dailyReturn(`BRK-B`,leading=FALSE,type='log')
+BRK.msrtn = 100*monthlyReturn(`BRK-B`,leading=FALSE,type='arithmetic')
+BRK.mlrtn = 100*monthlyReturn(`BRK-B`,leading=FALSE,type='log')
+
+getSymbols("DUK",from="2000-01-03") 
+dim(DUK) # see dimensions of dataset
+head(DUK) #see first six rows
+DUK.dsrtn = 100*dailyReturn(DUK,leading=FALSE,type='arithmetic')
+DUK.dlrtn = 100*dailyReturn(DUK,leading=FALSE,type='log')
+DUK.msrtn = 100*monthlyReturn(DUK,leading=FALSE,type='arithmetic')
+DUK.mlrtn = 100*monthlyReturn(DUK,leading=FALSE,type='log')
+```
+
+#### Create a data frame with each return series
+
+* Daily simple, Daily log, Monthly simple, Monthly log
+
+```{r}
+# use cbind() for column bind. 
+# Not exactly a merge - assumes rows correspond
+
+# Daily simple returns
+dsrtn = cbind(SPY.dsrtn,XLE.dsrtn,SRE.dsrtn,BRK.dsrtn,DUK.dsrtn) 
+colnames(dsrtn) = c("SPY","XLE","SRE","BRK","DUK") # add variable names
+
+# Daily log returns
+dlrtn = cbind(SPY.dlrtn,XLE.dlrtn,SRE.dlrtn,BRK.dlrtn,DUK.dlrtn)
+colnames(dlrtn) = c("SPY","XLE","SRE","BRK","DUK")
+
+# Monthly simple returns
+msrtn = cbind(SPY.msrtn,XLE.msrtn,SRE.msrtn,BRK.msrtn,DUK.msrtn)
+colnames(msrtn) = c("SPY","XLE","SRE","BRK","DUK")
+
+# Monthly log returns
+mlrtn = cbind(SPY.mlrtn,XLE.mlrtn,SRE.mlrtn,BRK.mlrtn,DUK.mlrtn)
+colnames(mlrtn) = c("SPY","XLE","SRE","BRK","DUK")
+```
+
+#### Calculate summary statistics for each return series
+
+```{r}
+basicStats(dsrtn) # calculate summary statistics from the fBasics package
+basicStats(dlrtn)
+basicStats(msrtn)
+basicStats(mlrtn)
+```
+
+* Comparison to observations in Tsay Chapter 1:
+
+  - daily have higher excess kurtosis than monthly. In monthly, market indices have higher excess kurtosis than individual stocks 
+  
+    - holds for energy
+    
+  - means of dailys are near zero while means of monthlies are higher
+  
+    - holds for energy
+    
+  - standard deviations of monthlies are also higher
+  
+    - holds for energy
+    
+  - In dailies, market indices have smaller standard deviations than individual stocks
+  
+    - not necessarily true for energy
+  
+  - skewness is not a big issue for any of them
+  
+    - holds for energy
+    
+  - simple and log returns are not that much different
+  
+    - holds for energy
+
+***
+
+### Testing hypotheses about returns distributions
+
+* Example with daily Berkshire Hathaway log returns
+
+#### Summary statistics
+
+```{r}
+# transform from zoo object to data frame
+brkrt= na.omit(as.data.frame(BRK.dlrtn))
+
+# Two different ways to calculate summary statistics
+basicStats(brkrt)
+mean(brkrt[,1])
+var(brkrt[,1])
+sqrt(var(brkrt[,1]))
+skewness(brkrt[,1])
+kurtosis(brkrt[,1])
+```
+
+#### t-test of mean returns
+
+* several possible hypotheses
+
+$$
+H_0: \mu = 0, \;\; H_a: \mu \neq 0
+$$
+
+```{r}
+t.test(brkrt[,1]) # t test of mean = 0
+```
+
+$$
+H_0: \mu = 0, \;\; H_a: \mu > 0
+$$
+```{r}
+t.test(brkrt[,1],alternative=c("greater")) # one-sided test
+```
+
+$$
+H_0: \mu = 0.04, \;\; H_a: \mu \neq 0.04
+$$
+```{r}
+t.test(brkrt[,1],mu=0.04) # two-sided test
+```
+
+$$
+H_0: \mu = 0.04, \;\; H_a: \mu < 0.04
+$$
+
+```{r}
+t.test(brkrt[,1],mu=0.04,alternative=c("less")) # one-sided test
+```
+
+#### Compare returns to normal density
+
+* Plot histogram and density of returns vs. Normal distribution
+
+```{r}
+hist(brkrt[,1],nclass=40) # histogram of simple returns to compare to normal
+d1 = density(brkrt[,1])   # fitted density, creates x-axis and y-axis
+names(d1)
+
+# plot the density
+plot(d1$x,d1$y,type="l") # type is the letter l for line, not the numeral 1
+
+# construct values for Normal density
+mu = mean(brkrt[,1]); s1 = sd(brkrt[,1])
+x = seq(-5,5,0.01)
+y = dnorm(x,mean=mu,sd=s1)
+lines(x,y,lty=2) # imposes a normal density over the empirical one for comparison
+```
+
+#### Statistical tests for Normality of returns
+
+* Individual t-tests for skewness and kurtosis
+* Joint Jarque-Bera (JB) test for both simultaneously
+
+```{r}
+# JB test
+normalTest(brkrt[,1],method='jb') # Jarque-Bera test of normality
+
+# Individual t-tests: skewness
+s1=skewness(brkrt[,1])
+T <- length(brkrt[,1]) # calculate time dimension/sample size
+tst <- s1/sqrt(6/T) # test of skewness
+tst
+pv <- 2*(pnorm(tst)) # p value of test
+pv
+
+# Individual t-tests: kurtosis
+k4 <- kurtosis(brkrt[,1])
+tst <- k4/sqrt(24/T) # test of excess kurtosis
+tst
+```
+
+***
+
+### Replicating Examples from Tsay's Book
+
+* Use read.table() function to read in a text file organized in data columns
+
+```{r}
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+
+# header=TRUE denotes variable names in first row
+da=read.table('Fall2017/TsayCh1/Lecture/d-ibm3dx7008.txt',header=T) 
+
+# daily simple returns of market Value Weighted, Equal Weighted, 
+# and S&P Portfolio indices plus IBM.
+# this data can replicate part of Tsay Table 1.2
+head(da)
+tail(da)
+dim(da)
+ibm = da[,2]
+# time plot, could change title (main)
+ts.plot(ibm,main="Daily simple returns of IBM") 
+```
+
+* Calculate summary statistics and t-tests
+
+```{r}
+sibm= ibm
+basicStats(sibm)
+mean(sibm)
+var(sibm)
+sqrt(var(sibm))
+skewness(sibm)
+kurtosis(sibm)
+
+# t test of zero mean returns
+t.test(sibm) 
+t.test(sibm,alternative=c("greater")) # one-sided test
+```
+
+* Compare returns to normal density
+
+```{r}
+hist(sibm,nclass=40) # histogram of simple returns to compare to normal
+d1 = density(sibm)
+names(d1)
+plot(d1$x,d1$y,type="l") # type is the letter l for line, not the numeral 1
+mu = mean(sibm); s1 = sd(sibm)
+x = seq(-0.4,0.4,0.01)
+y = dnorm(x,mean=mu,sd=s1)
+lines(x,y,lty=2) # imposes a normal density over the empirical one for comparison
+```
+
+* Test for Normality
+
+```{r}
+normalTest(sibm,method='jb') # Jarque-Bera test of normality
+s1=skewness(sibm)
+T <- length(sibm)   # calculate time dimension/sample size
+tst <- s1/sqrt(6/T) # test of skewness
+tst
+pv <- 2*(pnorm(tst)) # p value of test
+pv
+k4 <- kurtosis(sibm)
+tst <- k4/sqrt(24/T) # test of excess kurtosis
+tst
+```
+    
+* Same exercise for log returns instead of simple returns
+
+```{r}
+lnibm <- 100*log(ibm+1) # computes log return in percentage
+basicStats(lnibm)
+mean(lnibm)
+var(lnibm)
+skewness(lnibm)
+kurtosis(lnibm)
+basicStats(lnibm)
+t.test(lnibm) # t test of mean = 0
+t.test(lnibm,alternative=c("greater"))
+# compare returns to normal density
+hist(lnibm,nclass=40) # histogram of simple returns to compare to normal
+d1 = density(lnibm)
+names(d1)
+plot(d1$x,d1$y,type="l") # type is the letter l for line, not the numeral 1
+mu = mean(lnibm); s1 = sd(lnibm)
+x = seq(-10,10,0.01)
+y = dnorm(x,mean=mu,sd=s1)
+lines(x,y,lty=2) # imposes a normal density over the empirical one for comparison
+
+normalTest(lnibm,method='jb') # Jarque-Bera test of normality
+s2=skewness(lnibm)
+T <- length(lnibm) # calculate time dimension/sample size
+tst <- s2/sqrt(6/T) # test of skewness
+tst
+pv <- 2*(pnorm(tst)) # p value of test
+pv
+k2 <- kurtosis(lnibm)
+tst <- k2/sqrt(24/T) # test of excess kurtosis
+tst
+```
+
+#### Visual examples
+
+* Example from book with Apple stock
+
+```{r}
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+
+x=read.table("Tsay2017/Lecture1/d-aapl0413.txt",header=T) # Load Apple stock returns
+dim(x) # check the size of the data file
+x[1,] # show the first row of the data
+y=ts(x[,3],frequency=252,start=c(2004,1)) # Create a time-series object in R.
+plot(y,type='l',xlab='year',ylab='rtn') # type = letter l, not number 1
+title(main='Daily returns of Apple stock: 2004 to 2013')
+par(mfcol=c(2,1)) # To put two plots on a single page
+y=y*100 # percentage returns
+hist(y,nclass=50)
+title(main='Percentage returns')
+d1=density(y)
+plot(d1$x,d1$y,xlab='returns',ylab='den',type='l')
+```
+
+* Example from book with T-bill spreads
+
+```{r}
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+
+x=read.table("Tsay2017/Lecture1/m-tb3ms.txt",header=T) # Load 3m-TB rates
+dim(x)
+y=read.table("Tsay2017/Lecture1/m-tb6ms.txt",header=T) # Load 6m-TB rates
+dim(y)
+914-615 # make sure dimensions of 3m and 6m match up
+x[300,] # Check date of the 3m-TB
+y[1,] # Check date of the 1st observation of 6m-TB
+int=cbind(x[300:914,4],y[,4]) # Line up the two TB rates
+tdx=(c(1:615)+11)/12+1959
+par(mfcol=c(1,1))
+max(int)
+plot(tdx,int[,1],xlab='year',ylab='rate',type='l',ylim=c(0,16.5))
+lines(tdx,int[,2],lty=2) # Plot the 6m-TB rate on the same frame.
+plot(tdx,int[,2]-int[,1],xlab='year',ylab='spread',type='l')
+abline(h=c(0)) # Draw a horizontal line to ``zero''
+```
+
+* Example from book with Coca-Cola corporate earnings
+
+```{r}
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+
+x=read.table("Tsay2017/Lecture1/q-ko-earns8309.txt",header=T) # Load KO data
+dim(x)
+x[1,]
+tdx=c(1:107)/12+1983
+plot(tdx,x[,3],xlab='year',ylab='earnings',type='l')
+title(main='EPS of Coca Cola: 1983-2009')
+points(tdx,x[,3])
+```
+
+* Example from book with US-EU exchange rates
+
+```{r}
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+
+y=read.table("Tsay2017/Lecture1/d-exuseu.txt",header=T) # Load USEU exchange rates
+dim(y)
+y[1,]
+tdx=c(1:3567)/252+1999
+plot(tdx,y[,4],xlab='year',ylab='eu',type='l')
+title(main='Dollars per Euro')
+r=diff(log(y[,4])) #= Compute log returns
+plot(tdx[2:3567],r,xlab='year',ylab='rtn',type='l')
+title(main='ln-rtn: US-EU')
+hist(r,nclass=50)
+title(main='useu: ln-rtn')
+```
+
+* Example from book with IBM returns
+
+```{r}
+setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
+
+da=read.table('Tsay2017/Lecture1/m-ibm-6815.txt',header=T) # naming this da lets us run program with 
+# different assets by changing at the top
+head(da)
+dim(da)
+ibm=da$RET # simple return
+lnIBM <- log(ibm+1) # computes log return
+ts.plot(ibm,main="Monthly simple returns") # time plot, could change title (main)
+# compare returns to normal density
+hist(ibm,nclass=40) # histogram of simple returns to compare to normal
+d1 = density(lnIBM)
+names(d1)
+plot(d1$x,d1$y,type="l") # type is the letter l for line, not the numeral 1
+mu = mean(lnIBM); s1 = sd(lnIBM)
+x = seq(-0.4,0.4,0.01)
+y = dnorm(x,mean=mu,sd=s1)
+lines(x,y,lty=2) # imposes a normal density over the empirical one for comparison
+```
