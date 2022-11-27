@@ -1,3 +1,5 @@
+# Preamble -----------------
+
 # Examples of Characterizing Returns Distributions
 
 ## set working directory, load package fBasics, compute summary statistics, 
@@ -13,6 +15,10 @@ library(quantmod)
 # if(!require(pacman))install.packages("pacman")
 # pacman::p_load(fBasics,quantmod)
 
+# Data from hard drive ------------
+
+## Read and organize data ----------------
+
 # set working directory, notice slashes go forward
 setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse") 
 
@@ -27,6 +33,9 @@ head(da)
 tail(da)
 dim(da)
 ibm = da[,2]
+
+## Explore data ----------------------
+
 # time plot, could change title (main)
 ts.plot(ibm,main="Daily simple returns of IBM") 
 
@@ -41,6 +50,8 @@ kurtosis(sibm)
 # t test of zero mean returns
 t.test(sibm) 
 t.test(sibm,alternative=c("greater")) # one-sided test
+
+## Evaluate normality --------------
 
 # compare returns to normal density
 hist(sibm,nclass=40) # histogram of simple returns to compare to normal
@@ -96,8 +107,11 @@ tst
 # q() # quits R
 # exercise: do it with a different stock or series downloaded from yahoo, google, or FRED
 
+# Data from Yahoo!Finance ---------------
 
 # Now do it with energy stocks
+
+## Read and organize data ----------------
 
 # Market Indices
 getSymbols("XLE",from="2000-01-03")
@@ -163,6 +177,8 @@ colnames(msrtn) = c("SPY","XLE","SRE","BRK","DUK")
 mlrtn = cbind(SPY.mlrtn,XLE.mlrtn,SRE.mlrtn,BRK.mlrtn,DUK.mlrtn)
 colnames(mlrtn) = c("SPY","XLE","SRE","BRK","DUK")
 
+## Explore data -----------------
+
 basicStats(dsrtn) # calculate summary statistics from the fBasics package
 basicStats(dlrtn)
 basicStats(msrtn)
@@ -205,6 +221,8 @@ x = seq(-0.4,0.4,0.01)
 y = dnorm(x,mean=mu,sd=s1)
 lines(x,y,lty=2) # imposes a normal density over the empirical one for comparison
 
+## Evaluate normality ---------------
+
 normalTest(brkrt[,1],method='jb') # Jarque-Bera test of normality
 s1=skewness(brkrt[,1])
 T <- length(brkrt[,1]) # calculate time dimension/sample size
@@ -216,6 +234,8 @@ k4 <- kurtosis(brkrt[,1])
 tst <- k4/sqrt(24/T) # test of excess kurtosis
 tst
 
+
+# Additional examples and exercises ---------------
 
 ### Other examples that create pictures for lecture, useful coding practice
 

@@ -33,8 +33,7 @@ require(MASS)
 # install.packages("car")
 require(car)
 
-##################
-# 1. True model is not linear in parameters
+# 1. True model not linear in parameters --------------
 # Set the seed and generate the true model
 set.seed(826)
 # Covariance matrix of x1, x2, and e 
@@ -73,8 +72,8 @@ summary(lm(y~x1+x2,data=Xe))
 summary(lm(log(y)~x1+x2,data=Xe))
 
 
-##################
-# 2. Right hand side variables are constants or are perfectly correlated
+# 2. Perfect colinearity -------------------
+# Right hand side variables are constants or are perfectly correlated
 # NOTE: The intercept is a constant, but no other variables can be constant 
 #     - (otherwise perfectly correlated with the intercept)
 
@@ -145,8 +144,8 @@ summary(lm(y~x1+x2,data=Xe)) # Why an intercept of 25 and coefficient of -6?
                              # some stats packages will not even produce output
 
 
-##################
-# 3. Residuals "e" do not have constant variance (are "heteroskedastic")
+# 3. Heteroskedastic residuals -----------------
+# Residuals "e" do not have constant variance (are "heteroskedastic")
 # Set the seed and generate the true model
 set.seed(826)
 # Covariance matrix of x1, x2
@@ -186,8 +185,8 @@ summary(lm(y2~x1+x2,data=Xe2))
 
 
 
-##################
-# 4. Residuals "e" are serially correlated (autocorrelated)
+# 4. Serially correlated residuals ---------------
+# Residuals "e" are serially correlated (autocorrelated)
 # Set the seed and generate the true model
 set.seed(826)
 # Covariance matrix of x1, x2
@@ -226,10 +225,10 @@ summary(lm(y2~x1+x2,data=Xe2))
 
 
 
-##################
-# 5. Residuals "e" are correlated with X variables (endogenous)
+# 5. Residuals correlated with X's -----------------
+# Residuals "e" are correlated with X variables (endogenous)
 
-# 5a. Residuals (unobservable) covary with X's (observable)
+## 5a. Residuals (unobservable) covary with X's (observable) --------------
 set.seed(826)
 # Covariance matrix of x1, x2, and e 
 n <- 3
@@ -268,8 +267,8 @@ plot(Xe1$x2,y1)
 summary(lm(y1~x1+x2,data=Xe1)) 
 
 
-# 5b. An observable variable (that is correlated with included variables) was 
-#   omitted 
+## 5b. Omitted variable -----------------
+# An observable variable (that is correlated with included variables) was omitted 
 set.seed(826)
 # Covariance matrix of x1, x2, and e 
 Sig <- matrix(c(4,1,0,1,2,0,0,0,1),3,3)
@@ -292,7 +291,8 @@ summary(lm(y2~x1,data=Xe))
 summary(lm(y2~x2,data=Xe))
 
 
-# 5c. y is autocorrelated, may or may not have serial correlation/autocorrelation 
+## 5c. autocorrelated Y and autocorrelated residual --------------
+# y is autocorrelated, may or may not have serial correlation/autocorrelation 
 #   in the residual.  
 set.seed(826)
 eps <- arima.sim(model=list(ar=c(0.8)),n=999,sd=1)

@@ -1,4 +1,5 @@
-
+# Hurst exponents vignette
+# Estimate time-varying Hurst exponents for two assets, see how they correlate
 
 # borrowing a bit from here: 
 # https://stackoverflow.com/questions/26803471/rolling-hurst-exponent
@@ -15,7 +16,9 @@ library(quantmod) # getSymbols
 library(xts)
 require(zoo)
 
+# S&P500 ----------------
 
+## Organize data --------------
 # read S&P 500 index and calculate daily returns
 
 
@@ -32,7 +35,7 @@ rownames(df.stock) <- NULL
 colnames(df.stock) <- c("time", "SPC.price", "SPC.return")
 
 
-
+## Estimate Hurst exponents ---------------
 # Using R package simply
 # see Empirical Hurst exponent
 
@@ -55,6 +58,9 @@ z<- na.omit(z)
 chartSeries(z)
 mean(z)
 
+# Gold futures --------------
+
+## Organize data -------------------
 
 # try with gold futures for "fun"
 getSymbols("GC=F", from=sdate, to=edate)
@@ -67,6 +73,8 @@ df.gold <- cbind(time=time(g.price),
                   as.data.frame(g.return))
 rownames(df.gold) <- NULL
 colnames(df.gold) <- c("time", "gold.price", "gold.return")
+
+## Estimate Hurst exponents ----------------
 
 g = hurstexp(g.return)
 g
@@ -83,10 +91,14 @@ zg<- na.omit(zg)
 chartSeries(zg)
 mean(zg)
 
+# Compare Hurst exponents from two assets -----------------
+
 # compare them. There appears to be no relationship
 z.all = merge.xts(z,zg,join="inner")
 z.all = na.omit(z.all)
 colnames(z.all) <- c("h.spy","h.gld")
+
+## Visualize comparison ------------------
 
 # no obvious comovement in hurst exponents
 plot(z.all)
@@ -98,6 +110,8 @@ plot(df.z$h.spy,df.z$h.gld)
 # the hurst exponents themselves don't appear stationary
 acf(z.all$h.spy)
 acf(z.all$h.gld)
+
+## Quantify comparison --------------
 
 # the residuals from a regression of gold H on s&P h also not stationary
 # (tell-tale sign of spurious regression - regression is meaningless)
