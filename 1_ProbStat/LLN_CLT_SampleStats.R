@@ -110,7 +110,7 @@ legend("topright", legend=c("bootstrap density", "theoretical density", "bootstr
        col=c("black", "red", "black", "red"), lty=c(1,1,2,2), cex=0.8)
 
 ## Distribution of Std. Dev. --------------
-hist(unlist(var_list), breaks = 500, 
+hist(unlist(sd_list), breaks = 500, 
      xlab = "Variance of 10,000 samples from X of size 10", 
      main = "CLT of sample variance",
      cex.main = 0.8)

@@ -1,0 +1,735 @@
+---
+title: "Synthetic Control Carbon Tax"
+author: "Ben Gilbert"
+date: "12/3/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+  
+## Welcome
+  
+This is a demonstration of the results in 
+
+*Andersson, J. J. (2019). Carbon taxes and CO 2 emissions: Sweden as a case study. American Economic Journal: Economic Policy, 11(4), 1-30.*
+
+Using synthetic control methods in R to show the impact of the carbon tax in Sweden's transportation sector on carbon dioxide emissions. 
+
+We also compare the traditional Synth results to Hollingsworth 2021 "Synthetic Control with LASSO" or SCUL package. 
+
+### Packages needed
+
+The first thing you need to do is install and load a few packages to make sure everything runs:
+
+```{r, eval = FALSE}
+install.packages("devtools")
+install.packages("SCtools")
+install.packages("Synth")
+install.packages("scul")
+#if (!require("devtools")) install.packages("devtools")
+#devtools::install_github("hollina/scul")
+```
+
+### Load packages and main dataset
+
+```{r load, warning=FALSE, message=FALSE}
+library(Synth)
+library(tidyverse)
+library(haven)
+library(devtools)
+if(!require(SCtools)) devtools::install_github("bcastanho/SCtools")
+require(SCtools)
+library(foreign)
+require(scul)
+require(cowplot)
+
+setwd("C:/Users/gilbe/Dropbox/Econometrics/Petes Class/EB 590 Spring 2021/CarbonTaxSynthExample")
+
+carbontax <- read_dta("carbontax_data.dta") %>%
+   as.data.frame(.)
+```
+
+
+## Prepare data in format for Synth package
+
+The Synth package requires the standard data set to be formatted in a specific way, with fields for predictors, time periods, etc. 
+
+```{r, echo=TRUE}
+ dataprep.out <-
+              dataprep(foo = carbontax,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1989 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1989 , "mean"),
+                         list("CO2_transport_capita" , 1980 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 13,
+                       controls.identifier = c(1:12, 14:15),
+                       time.optimize.ssr = 1960:1989,
+                       time.plot = 1960:2005
+                       )
+```
+
+# Estimate the synthetic control weights 
+
+Estimate the weights and report optimal weights and covariate balance results in tables. 
+
+```{r, echo=TRUE}
+ synth.out <- synth(data.prep.obj = dataprep.out,
+                    method = "All")
+	
+###################################################
+ synth.tables <- synth.tab(dataprep.res = dataprep.out,
+                           synth.res = synth.out
+                           )
+
+###################################################
+### Table 1: CO2 Emissions From Transport Predictor Means Before Tax Reform	
+###################################################
+ synth.tables$tab.pred[1:7, ]
+ 
+###################################################
+### Table 2: Country Weights in Synthetic Sweden
+###################################################
+ synth.tables$tab.w[1:14, ]
+```
+
+## Show the main takeaway figures
+
+These are the main results before evaluating and testing. 
+
+```{r, echo=TRUE}
+###################################################
+### Figure 4: Path Plot of per capita CO2 Emissions from Transport
+###################################################
+  path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,3),
+           Legend = c("Sweden","synthetic Sweden"),
+           Legend.position = "bottomright"
+           )
+# Add line 
+abline(v=1990,lty="dotted",lwd=2)
+arrows(1987,1.0,1989,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1981,1.0,"VAT + Carbon tax",cex=Cex.set)
+
+###################################################
+### Figure 5: Gap in per capita CO2 Emissions from Transport between Sweden and Synthetic Sweden
+###################################################
+ gaps.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Gap in metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(-0.5,0.5),
+           Main = NA
+           )
+
+#Add line
+abline(v=1990,lty="dotted",lwd=2)
+arrows(1987,0.3,1989,0.3,col="black",length=.1)	
+Cex.set <- 1
+text(1981,0.3,"VAT + Carbon tax",cex=Cex.set)
+```
+
+## Check placebo treatment years: 1980 and 1970
+
+```{r, echo=TRUE}
+###################################################
+### Figure 6:  Placebo in-time tests 1980/1970
+###################################################
+#Placebo test in time for 1980 
+dataprep.out <-
+              dataprep(foo = carbontax,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1970:1979 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1979 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean"),
+                         list("CO2_transport_capita" , 1965 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 13,
+                       controls.identifier = c(1:12,14:15),
+                       time.optimize.ssr = 1960:1979,
+                       time.plot = 1960:1990
+                       )
+
+synth.out <- synth(
+                   data.prep.obj = dataprep.out,
+                   method = "BFGS"
+                   )
+
+ path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,3),
+           Legend = c("Sweden","synthetic Sweden"),
+           Legend.position = "bottomright"
+           )
+
+# Add line 
+abline(v=1980,lty="dotted",lwd=2)
+arrows(1977,1.0,1979,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1974,1.0,"Placebo tax",cex=Cex.set)
+
+
+#Placebo test in time for 1970 (excluding Poland due to missing GDP data 1960-69)
+ dataprep.out <-
+              dataprep(foo = carbontax,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1960:1969 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1960:1970 , "mean")
+                                   ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 13,
+                       controls.identifier = c(1:9, 11:12, 14:15),
+                       time.optimize.ssr = 1960:1969,
+                       time.plot = 1960:1990
+                       )
+
+synth.out <- synth(
+                   data.prep.obj = dataprep.out,
+                   method = "All"
+                   )
+
+ path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,3),
+           Legend = c("Sweden","synthetic Sweden"),
+           Legend.position = "bottomright"
+           )
+
+# Add line 
+abline(v=1970,lty="dotted",lwd=2)
+arrows(1968,2.0,1969.5,2.0,col="black",length=.1)	
+Cex.set <- 1
+text(1965,2.0,"Placebo tax",cex=Cex.set)
+
+```
+
+## Check placebo countries and calculate MSPE
+
+Placebos using SCtools package:
+
+```{r, echo=TRUE}
+###################################################
+### Figure 7:  Placebo in-space tests
+###################################################
+
+# Restore original data prep object (so treat year is 1990, not 1970 as above)
+# and original synth results (should have just named them differently above)
+dataprep.out <-
+  dataprep(foo = carbontax,
+           predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                          "urban_pop") ,
+           predictors.op = "mean" ,
+           time.predictors.prior = 1980:1989 ,
+           special.predictors = list(
+             list("CO2_transport_capita" , 1989 , "mean"),
+             list("CO2_transport_capita" , 1980 , "mean"),
+             list("CO2_transport_capita" , 1970 , "mean")
+           ),
+           dependent = "CO2_transport_capita",
+           unit.variable = "Countryno",
+           unit.names.variable = "country",
+           time.variable = "year",
+           treatment.identifier = 13,
+           controls.identifier = c(1:12, 14:15),
+           time.optimize.ssr = 1960:1989,
+           time.plot = 1960:2005
+  )
+
+ synth.out <- synth(data.prep.obj = dataprep.out,
+                    method = "All")
+
+# Using devtools and SCtools: 
+placebos <- generate.placebos(dataprep.out, synth.out)
+plot_placebos(placebos)
+mspe.plot(placebos)
+mspe.plot(placebos, discard.extreme = TRUE, mspe.limit = 20, plot.hist = TRUE)
+```
+
+Calculating placebo effects "by hand":
+
+```{r, echo=TRUE}
+# Running placebos "by hand"
+store <- matrix(NA,length(1960:2005),15)
+colnames(store) <- unique(carbontax$country)
+
+# run placebo test
+for(iter in 1:15)
+ {
+ dataprep.out <-
+              dataprep(foo = carbontax,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1989 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1989 , "mean"),
+				list("CO2_transport_capita" , 1980 , "mean") ,
+				list("CO2_transport_capita" , 1970 , "mean")
+					  ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = iter,
+                       controls.identifier = c(1:15)[-iter],
+                       time.optimize.ssr = 1960:1989,
+                       time.plot = 1960:2005
+                       )
+
+
+
+# run synth
+synth.out <- synth(
+                   data.prep.obj = dataprep.out,
+                   method = "BFGS"
+                   )
+
+# store gaps
+store[,iter] <- dataprep.out$Y1plot - (dataprep.out$Y0plot %*% synth.out$solution.w)
+}
+
+# now do figure
+data <- store
+rownames(data) <- 1960:2005
+
+# Set bounds in gaps data
+gap.start     <- 1
+gap.end       <- nrow(data)
+years         <- 1960:2005
+gap.end.pre  <- which(rownames(data)=="1989")
+
+#  MSPE Pre-Treatment
+mse        <- apply(data[ gap.start:gap.end.pre,]^2,2,mean)
+sweden.mse <- as.numeric(mse[13])
+# Exclude states with 20 times higher MSPE than Sweden (to include all countries, set value to 1000)
+data <- data[,mse<20*sweden.mse]
+Cex.set <- 1
+
+# Plot
+plot(years,data[gap.start:gap.end,which(colnames(data)=="Sweden")],
+     ylim=c(-1,1),xlab="Year",
+     xlim=c(1960,2005),ylab="Gap in metric tons per capita (CO2 from transport)",
+     type="l",lwd=2,col="black",
+     xaxs="i",yaxs="i")
+
+# Add lines for control states
+for (i in 1:ncol(data)) { lines(years,data[gap.start:gap.end,i],col="gray") }
+
+## Add Sweden Line
+lines(years,data[gap.start:gap.end,which(colnames(data)=="Sweden")],lwd=2,col="black")
+
+# Add grid
+abline(v=1990,lty="dotted",lwd=2)
+abline(h=0,lty="dashed",lwd=2)
+legend("bottomleft",legend=c("Sweden","control countries"),
+lty=c(1,1),col=c("black","gray"),lwd=c(2,1),cex=.8)
+arrows(1987,-0.5,1989,-0.5,col="black",length=.1)
+text(1981,-0.5,"VAT + Carbon Tax",cex=Cex.set)
+abline(v=1960)
+abline(v=2005)
+abline(h=-1)
+abline(h=1)
+
+
+###################################################
+### Figure 8: Ratio Test: Ratios of Post-Treatment MSPE to Pre-Treatment MSPE
+###################################################
+# Figure 8 was made using Microsoft Excel. Below is an example on how the data for this figure was created
+# Example: Postperiod MSPE / Preperiod MSPE for Sweden (treatment.identifier = 13)
+
+ dataprep.out <-
+              dataprep(foo = carbontax,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1989 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1989 , "mean"),
+                         list("CO2_transport_capita" , 1980 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 13,
+                       controls.identifier = c(1:12, 14:15),
+                       time.optimize.ssr = 1960:1989,
+                       time.plot = 1960:2005
+                       )
+                       
+ synth.out <- synth(data.prep.obj = dataprep.out,
+                    method = "All")                      
+
+ gaps <- dataprep.out$Y1plot - (dataprep.out$Y0plot %*% synth.out$solution.w)
+ mspepost <- mean((gaps[31:46, 1])^2)
+ mspepre <- mean((gaps[1:30, 1])^2)
+ mspepost/mspepre
+```
+
+## Conduct the leave-one-out test
+
+```{r, echo=TRUE}
+###################################################
+### Figure 9: Leave-One-Out: Distribution of the Synthetic Control for Sweden
+###################################################
+# Iteratively eliminate one of the six control countries that got a W weight larger than 0.001
+# Example: eliminating New Zealand
+
+ dataprep.out <-
+              dataprep(foo = carbontax,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1989 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1989 , "mean"),
+                         list("CO2_transport_capita" , 1980 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 13,
+                       controls.identifier = c(1:8, 10:12, 14:15),
+                       time.optimize.ssr = 1960:1989,
+                       time.plot = 1960:2005
+                       )
+                       
+synth.out <- synth(data.prep.obj = dataprep.out,
+                    method = "All")
+                    
+  path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,3),
+           Legend = c("Sweden","synthetic Sweden"),
+           Legend.position = "bottomright"
+           )
+# Add line 
+abline(v=1990,lty="dotted",lwd=2)
+arrows(1987,1.0,1989,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1981,1.0,"VAT + Carbon tax",cex=Cex.set)
+
+# To create Figure 9, load file: leave_one_out_data.dta
+setwd("C:/Users/gilbe/Dropbox/Econometrics/Petes Class/EB 590 Spring 2021/CarbonTaxSynthExample")
+leaveoneout <- read_dta("leave_one_out_data.dta") %>%
+  as.data.frame(.)
+attach(leaveoneout)
+
+plot(Year[1:46], sweden, type="l", lwd=2, col="black", ylim=c(0,3.0), xlab="Year", ylab="Metric tons per capita (CO2 from transport)", xaxs="i",yaxs="i" )
+abline(v=1990,lty="dotted",lwd=2)
+legend("bottomleft",legend=c("Sweden","synthetic Sweden", "synthetic Sweden (leave-one-out)   "),
+lty=c(1,2,1),col=c("black","black","gray"),lwd=c(2,2,2),cex=0.8)
+lines(Year, excl_belgium, lty="solid" ,lwd=2, col="gray")
+lines(Year, excl_denmark, lty="solid",lwd=2, col="gray")
+lines(Year, excl_greece, lty="solid" ,lwd=2, col="gray")
+lines(Year, excl_newzealand, lty="solid" ,lwd=2, col="gray")
+lines(Year, excl_switzerland, lty="solid" ,lwd=2, col="gray")
+lines(Year, excl_unitedstates, lty="solid" ,lwd=2, col="gray")
+lines(Year, synth_sweden, lty="dashed" , lwd=2, col="black")
+lines(Year, sweden, lty="solid" , lwd=2, col="black")
+arrows(1987,1.0,1989,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1981,1.0,"VAT + Carbon tax",cex=Cex.set)  
+```
+
+## Compare full sample of donor pool to trimmed sample
+
+```{r, echo=TRUE}
+###################################################
+### Figure 10: Path and Gap plot of per capita CO2 Emissions from Transport: Main Results vs. Full Sample 
+###################################################
+# Load file: carbontax_fullsample_data.dta
+
+setwd("C:/Users/gilbe/Dropbox/Econometrics/Petes Class/EB 590 Spring 2021/CarbonTaxSynthExample")
+carbontax_fullsample <- read_dta("carbontax_fullsample_data.dta") %>%
+  as.data.frame(.)
+attach(carbontax_fullsample)
+
+ dataprep.out <-
+              dataprep(foo = carbontax_fullsample,
+                       predictors = c("GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" ,
+                                      "urban_pop") ,
+                       predictors.op = "mean" ,
+                       time.predictors.prior = 1980:1989 ,
+                       special.predictors = list(
+                         list("CO2_transport_capita" , 1989 , "mean"),
+                         list("CO2_transport_capita" , 1980 , "mean"),
+                         list("CO2_transport_capita" , 1970 , "mean")
+                                                ),
+                       dependent = "CO2_transport_capita",
+                       unit.variable = "Countryno",
+                       unit.names.variable = "country",
+                       time.variable = "year",
+                       treatment.identifier = 21,
+                       controls.identifier = c(1:20, 22:25),
+                       time.optimize.ssr = 1960:1989,
+                       time.plot = 1960:2005
+                       )
+                       
+                        
+synth.out <- synth(data.prep.obj = dataprep.out,
+                    method = "All")
+                    
+  path.plot(synth.res = synth.out,
+           dataprep.res = dataprep.out,
+           Ylab = "Metric tons per capita (CO2 from transport)",
+           Xlab = "Year",
+           Ylim = c(0,3),
+           Legend = c("Sweden","synthetic Sweden"),
+           Legend.position = "bottomright"
+           )
+# Add line 
+abline(v=1990,lty="dotted",lwd=2)
+arrows(1987,1.0,1989,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1981,1.0,"VAT + Carbon tax",cex=Cex.set)     
+
+# To create Figure 10, load file: fullsample_figures.dta
+fullsample_figures <- read_dta("fullsample_figures.dta")
+attach(fullsample_figures)   
+
+# Gap plot
+plot(Year, CO2_reductions_full_sample, type="l", lwd=2, col="gray", ylim=c(-0.50,0.50), xlab="Year" , ylab="Gap in metric tons per capita (CO2 from transport)", xaxs="i",yaxs="i")
+lines(Year, CO2_reductions_full_sample, lty="solid", lwd=2, col="gray")
+abline(v=1990,lty="dotted",lwd=2)
+abline(h = 0, col = "black", lty = "dashed", lwd = 2)
+legend("bottomleft",legend=c("Main result (14 control countries)" ,"Full sample (24 control countries)"),
+lty=c(1,1),col=c("black","gray"),lwd=c(2,2),cex=0.8)
+lines(Year, CO2_reductions_original_sample, lty="solid", lwd=2, col="black")
+arrows(1987,0.3,1989,0.3,col="black",length=.1)	
+Cex.set <- 1
+text(1981,0.3,"VAT + Carbon tax",cex=Cex.set) 
+
+# Path plot
+plot(Year[1:46], sweden, type="l", lwd=2, col="black", ylim=c(0,3.0), xlab="Year", ylab="Metric tons per capita (CO2 from transport)", xaxs="i",yaxs="i" )
+abline(v=1990,lty="dotted",lwd=2)
+legend("bottomleft",legend=c("Sweden","synthetic Sweden", "synthetic Sweden (full sample)   "),
+lty=c(1,2,1),col=c("black","black","gray"),lwd=c(2,2,2),cex=0.8)
+lines(Year, synth_sweden_full_sample, lty="solid" ,lwd=2, col="gray")
+lines(Year, synth_sweden_original_sample, lty="dashed" , lwd=2, col="black")
+lines(Year, sweden, lty="solid" , lwd=2, col="black")
+arrows(1987,1.0,1989,1.0,col="black",length=.1)	
+Cex.set <- 1
+text(1981,1.0,"VAT + Carbon tax",cex=Cex.set)
+```
+
+
+# Compare to SCUL method and package
+
+This is not an apples to apples comparison - SCUL does not apply the LASSO penalty to the Synth objective function. It uses the full pre-treatment time series of donor outcomes and predictors (instead of potential summary statistics and other linear combinations of those predictors, as in Synth).
+
+Possible predictors: donor units' time series of GDP per capita, gas consumption per capita, vehicles per capita, urban population, as well as donor units' pretreatment outcome of CO2 emissions from transport.
+
+Prepare data: 
+
+```{r, echo=TRUE}
+
+# remove redundant country index and unused predictors
+datasetup <- carbontax %>% select(-c("country","pop_density"))
+# column order by country
+datasetup <- pivot_wider(datasetup, names_vary="slowest", names_from = "Countryno", values_from = c("CO2_transport_capita", "GDP_per_capita" , "gas_cons_capita" , "vehicles_capita" , "urban_pop"))
+
+# for full donor pool use all time series from all donor countries (not Sweden country 13)
+XData <- datasetup %>% select(-c("year", "CO2_transport_capita_13", "GDP_per_capita_13", "gas_cons_capita_13", "vehicles_capita_13", "urban_pop_13"))
+
+# for limited donor pool, just use pre-treatment donor outcomes
+Ydonors <- unlist(dataprep.out$Y0plot)
+Ydonors <- as.data.frame(unlist(Ydonors))
+
+# outcome series
+YData <- unlist(dataprep.out$Y1plot)
+YData <- as.data.frame(unlist(YData))
+#YData <- datasetup %>% select(c("year", "CO2_transport_capita_13"))
+#colnames(YData) <- c("year", "CO2_transport_capita")
+# time index
+year <- carbontax %>% select("year") %>% distinct(year)
+YData <- cbind(year, YData)
+colnames(YData) <- c("year", "CO2_transport_capita")
+```
+
+Process data for use by SCUL package. Here I'm using all the possible donor time series, but could replace "XData" with "Ydonors" if only wanted pre-treatment outcomes from the donor pool:
+
+```{r, echo=TRUE}
+# Preprocess() checks for non-numeric, missing, or constant variables
+# drops any column that has any of these issues
+processed.YData <- Preprocess(YData)
+
+# cross validation will be run on many subsets. Need to make sure each subset
+# also has variation using PreprocessSubset(). 
+# Identical to Preprocess() but runs on each CV subset
+TreatmentBeginsAt <- 31 # Here the 31st row is 1990
+PostPeriodLength <- nrow(processed.YData) - TreatmentBeginsAt + 1
+PrePeriodLength <- TreatmentBeginsAt-1
+# Ideally equal to post-treatment, but shorter if not many pre-treatment time periods
+#NumberInitialTimePeriods <- 10 
+NumberInitialTimePeriods <- 5
+processed.YData <- PreprocessSubset(processed.YData,
+                                       TreatmentBeginsAt ,
+                                       NumberInitialTimePeriods,
+                                       PostPeriodLength,
+                                       PrePeriodLength)
+head(processed.YData)
+
+# create list (SCUL.input) for later SCUL commands to call
+# applies PreprocessSubset() and Preprocess() to all data
+# want all entries (time, y, x.DonorPool, x.PlaceboPool) to be data.frames
+# Cohen's D is a unit-free measure of fit between Y.actual and Y.scul
+# It's the standardized mean difference between Y.actual and Y.scul in pretreatment period
+# measured in standard deviation terms. Max of 0.25 std. devs is a rule of thumb. 
+SCUL.input <- OrganizeDataAndSetup (
+  time =  YData %>% select(year),
+  y = YData %>% select(CO2_transport_capita),
+  TreatmentBeginsAt = TreatmentBeginsAt,
+  x.DonorPool = XData,
+  CohensDThreshold = 0.25,
+  NumberInitialTimePeriods = NumberInitialTimePeriods,
+  TrainingPostPeriodLength = 7,
+  x.PlaceboPool = XData,
+  OutputFilePath="C:/Users/gilbe/Dropbox/"
+)
+```
+
+Fit the model and plot some diagnostics:
+
+```{r, echo=TRUE, warning=FALSE}
+# Estimation by LASSO with rolling CV
+SCUL.output <- SCUL(plotCV == TRUE)
+GraphTargetData()
+PlotActualvSCUL()
+PlotDiffOfActualvSCUL()
+PlotShareTable()
+```
+
+Now do some inference on how well the model performs: 
+
+```{r, echo=TRUE}
+# Really should restrict each placebo not to have it's (endogenous) variables in the donor pool
+drop_vars_from_same_FIPS <-
+  "select(-ends_with(substring(names(x.PlaceboPool)[h],nchar(names(x.PlaceboPool)[h]) - 2 + 1, nchar(names(x.PlaceboPool)[h]))))"
+
+SCUL.inference <- CreatePlaceboDistribution(
+  DonorPoolRestrictionForEachPlacebo = drop_vars_from_same_FIPS
+)
+
+smoke_plot <- SmokePlot()
+smoke_plot
+```
+
+Compare null distribution of placebo effects to actual effect:
+
+```{r, echo=TRUE}
+# Grab standardized differences from saved objects
+Results.y.StandardizedDiff <- unlist(smoke_plot$layers[[2]]$data$std_diff)
+Results.y.StandardizedDiff <- as.data.frame(unlist(Results.y.StandardizedDiff))
+
+# Show distribution of standardized differences (treatment effects) in placebo pool
+# vs estimated difference
+# with and without a Cohen's D restriction on pre-period fit in placebo pool
+# Rejection region is 10% of distribution
+# narrower null distribution around zero is better
+
+# Plot null distribution with no restriction on pre-period fit
+NullDist.Full <- PlotNullDistribution(
+  CohensD = 999,
+  StartTime = TreatmentBeginsAt,
+  EndTime = length(SCUL.output$y.actual),
+  height = 2,
+  AdjustmentParm = 1,
+  BandwidthParm = .25,
+  title_label = "Placebo distribution compared\n to ATE estimate in\n pre-period standard deviations",
+  y_label  = " ",
+  x_label  =  "",
+  subtitle_label  =  "No Cohen's D restriction",
+  rejection_label  =  ""
+) +
+  geom_vline(
+    xintercept = mean(Results.y.StandardizedDiff[TreatmentBeginsAt:nrow(Results.y.StandardizedDiff),]),
+    linetype = "dashed",
+    size = 1,
+    color = "red")
+
+# Plot null distribution 0.25 cohen's D restriction on pre-period fit
+NullDist.25 <- PlotNullDistribution(
+  CohensD = 0.25,
+  StartTime = TreatmentBeginsAt,
+  EndTime = length(SCUL.output$y.actual),
+  height = 2,
+  AdjustmentParm = 1,
+  BandwidthParm = .25,
+  y_label  = "",
+  x_label  =  "Distribution of standardized difference\n for placebo donor pool",
+  subtitle_label  =  "0.25 Cohen's D restriction",
+  rejection_label  =  "",
+  title_label = " ",
+  
+) +
+  geom_vline(
+    xintercept = mean(Results.y.StandardizedDiff[TreatmentBeginsAt:nrow(Results.y.StandardizedDiff),]),
+    linetype = "dashed",
+    size = 1,
+    color = "red")
+
+# Plot n
+# Combine the three plots
+combined_plot <- plot_grid(
+  NullDist.Full,NullDist.25,
+  ncol = 1)
+
+# Display the plot
+combined_plot
+```
+
+Calculate p-values for treatment significance:
+
+```{r, echo=TRUE}
+
+# Permutation-based p-values of treatment significance:
+PValue(
+  CohensD = 999,
+  StartTime = SCUL.input$TreatmentBeginsAt,
+  EndTime = nrow(Results.y.StandardizedDiff)
+)
+
+PValue(
+  CohensD = .25,
+  StartTime = SCUL.input$TreatmentBeginsAt,
+  EndTime = nrow(Results.y.StandardizedDiff)
+)
+
+```

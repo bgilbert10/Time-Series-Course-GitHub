@@ -1,0 +1,79 @@
+---
+title: "EBGN 594: Commodity Price Readings"
+author: "Ben Gilbert"
+date: "Sept. 28, 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Commodity Price Readings Summary
+
+## Slade 1982: Trends in Natural Resource Commodity Prices
+
+* Depletion/scarcity vs technological advances in extraction have opposing effects on prices. 
+  + Slade argues that technological progress dominates early on but can't outpace depletion in the end. 
+  + Implies U-shaped price paths over time
+  + Fit quadratic trend to prices. Evidence is consistent with U-shaped price paths. 
+* A lot of the econometric theory of unit roots and nonstationary time series had not been worked out and widely accepted in 1982
+* Paper was written when commodity prices were spiking the late 70s. U-shape happens to fit historical time frame. 
+* Since then, more phases of decline and increase. Due to random walk, or phases in discovery, technological change, and depletion? 
+
+#### Theoretical model of dynamic optimization with depletion and cost reducing technological change leads to: 
+
+$$
+\Delta P = \Delta k + \rho \lambda
+$$
+
+where $\Delta P$ is the price change, $\Delta k$ is technological change, $\rho$ is the time discount rate, $\lambda = P-MC$ is the shadow value. 
+
+* Shadow value of exhaustible resources rise over time (Hotelling rule)
+* Cost reducing technological change means $\Delta k$ is negative
+  + Slade argues $\Delta k$ is declining at decreasing rate - will eventually be outpaced by growth in $\lambda$ (depletion/scarcity)
+  
+#### Regression equation: 
+
+$$
+P_{it} = b_{0i} + b_{1i}t + b_{2i}t^2 + \epsilon_{it}
+$$
+
+Run this for multiple commodities $i$. 
+
+## More modern approach (e.g., Schwerhoff & Stuermer 2019 in their appendix): 
+
+* Commodity prices are random walks. 
+* If depletion dominates, should be random walk with positive drift. 
+* If technological change and discovery dominate, should be random walk with negative drift
+* Most recent empirical evidence: for most depletable commodities, long run zero or negative drift. 
+* Interesting question: use structural breaks or time-varying coefficients models to identify "phases" in drift up or down. 
+
+
+## Slade & Thille 1997: Hotelling confronts CAPM
+
+* CAPM Model: 
+
+$$
+r_{it} = \alpha + r_{ft} + \underset{\text{risk premium}}{\beta (r_{mt} - r_{ft})} + a_t
+$$
+
+* Hotelling Model: 
+  + Shadow price grows at the rate of interest net of cost increases from depletion. 
+  + Data often reject strict Hotelling model
+
+$$
+\underset{\text{pct chng in shadow value}}{\frac{\Delta \lambda_t}{\lambda_t}} = \underset{\text{(risk free) interest rate}}{r_{ft}} + \underset{\Delta \text{extraction cost from depletion}}{\frac{C_R}{\lambda_t}}
+$$
+
+* Notation
+  + $C_R = \frac{\partial C}{\partial R}$ where $R$ is remaining reserves. 
+  + $\lambda$ is the shadow value, can be approximated by $p - \frac{\partial C}{\partial q}$ but researcher needs to estimate cost function $C(q,R)$
+  
+* Hotelling-augmented CAPM: 
+
+$$
+\frac{\Delta \lambda_t}{\lambda_t} = \alpha + r_{ft} + \frac{C_R}{\lambda_t} + \beta (r_{mt} - r_{ft})
+$$
+
+* Empirical result: within Hotelling-augmented CAPM regression, can't reject either Hotelling or CAPM or Hotelling-augmented CAPM as reasonable descriptions of the data.  

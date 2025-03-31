@@ -1,9 +1,6 @@
-# Examples of multivariate volatility models for dynamic relationships
-
-# First between gold futures returns and changes in TIPS. 
-# Second in a Kilian (2009)-like oil supply/demand example.
-
-# Mostly using Tsay's multivariate time series (MTS) package. 
+# Examples of multivariate volatility models for the dynamic relationship
+# between gold returns and changes in TIPS. Mostly using Tsay's multivariate
+# time series (MTS) package. 
 
 require(MTS)
 require(forecast)
@@ -16,7 +13,7 @@ require(zoo)
 # Gold and TIPS example --------------
 
 ## 1) Organize Data ---------------
-getSymbols("GC=F")                          #gold futures
+getSymbols("GC=F")   #gold futures day-ahead
 getSymbols("DFII10",src="FRED")             #10y TIPS const maturity
 
 grd <- merge.xts(`GC=F`$`GC=F.Adjusted`, DFII10$DFII10, 
@@ -52,7 +49,6 @@ plot(arch.test(gldvar,lags.multi=30))
 
 ## 3) Estimate the exponentially weighted moving average volatility model -----------
 ewgld = EWMAvol(res)
-# column 1 is gold volatility, 4 is tips volatility, 2 and 3 are gold-tips covariance
 head(ewgld$Sigma.t)
 # gold residual conditional volatility over time:
 ts.plot(ewgld$Sigma.t[,1])
@@ -61,17 +57,30 @@ ts.plot(ewgld$Sigma.t[,2])
 # tips residual conditional volatility over time:
 ts.plot(ewgld$Sigma.t[,4])
 
+Std.res1 = res[,1]/ewgld$Sigma.t[,1]
+Std.res1 = ewgld$return[,1]/ewgld$Sigma.t[,1]
+
+std.gld = ret[2:727,1]/sqrt(ewgld$Sigma.t[,1])
+std.tip = ret[2:727,2]/sqrt(ewgld$Sigma.t[,4])
+std.ret = cbind(std.gld,std.tip)
+VARselect(std.ret,lag.max=10,type="const")
+std.gldvar = vars::VAR(std.ret,p=1,type="const")
+plot(irf(std.gldvar,impulse="std.tip",response="std.gld",ortho=TRUE))
+res.new = residuals(std.gldvar)
+ts.plot(res.new[,1])
+ts.plot(res.new[,2])
+arch.test(std.gldvar)
+plot(arch.test(std.gldvar,lags.multi=30))
+
 ## 4) Estimate the dynamic conditional correlation volatility model -------------
 # dccPre fits the VAR(1) with intercept, and computes univariate residual GARCH
 gldvar.garch <- dccPre(ret,p=1,include.mean=TRUE)
-# GARCH-standardized residuals: 
 head(gldvar.garch$sresi)
-# gold residuals from regular VAR(1): 
+# gold residuals: 
 ts.plot(res[,1])
 # univariate GARCH-standardized gold residuals:
 ts.plot(gldvar.garch$sresi[,1])
 
-# residual volatility:
 head(gldvar.garch$marVol)
 # gold equation residual volatility
 ts.plot(gldvar.garch$marVol[,1])
@@ -112,9 +121,9 @@ getSymbols("INDPRO",src="FRED")
 # merge oil, gas, and drilling and calculate returns/changes
 oilgas= merge.xts(MCOILWTICO,IPN213111N,INDPRO,join="inner")
 # calculate log differences as ts() objects, notice start dates
-doil = ts(na.omit(diff(log(oilgas$MCOILWTICO))),freq=12,start=1986+1/12)
-dwell = ts(na.omit(diff(oilgas$IPN213111N)),freq=12,start=1986+1/12)
-dind = ts(na.omit(diff(oilgas$INDPRO)),freq=12,start=1986+1/12)
+doil = ts(na.omit(diff(log(oilgas$MCOILWTICO))),freq=12,start=1997+1/12)
+dwell = ts(na.omit(diff(oilgas$IPN213111N)),freq=12,start=1997+1/12)
+dind = ts(na.omit(diff(oilgas$INDPRO)),freq=12,start=1997+1/12)
 
 kil = cbind(dwell,dind,doil)
 # show series 
@@ -137,7 +146,6 @@ plot(arch.test(varkil,lags.multi=30))
 
 ## 3) Estimate the exponentially weighted moving average volatility model -----------
 ewoil = EWMAvol(res)
-# this is a covariance matrix in each time period, (1) to (3) are first row, etc.
 head(ewoil$Sigma.t)
 # drilling residual conditional volatility over time:
 ts.plot(ewoil$Sigma.t[,1])

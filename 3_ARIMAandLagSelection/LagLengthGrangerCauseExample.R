@@ -1,7 +1,5 @@
-# Preamble ------------------
-
-# Using sequential F-tests with HAC standard errors, vs. AIC, to select lag length
-# Also test for Granger causality of one variable against another
+# use sequential F-tests with HAC standard errors to select lag length
+# Also test for granger causality of one variable against another
 
 require(quantmod)
 require(forecast)
@@ -21,8 +19,6 @@ require(strucchange)
 # install.packages("vars")
 require(vars)
 
-# Read and organize data ---------------
-
 getSymbols("MCOILWTICO",src="FRED")
 # Oil & gas drilling index
 getSymbols("IPN213111N",src="FRED")
@@ -39,8 +35,6 @@ dwell = ts(na.omit(diff(data$IPN213111N)),freq=12,start=1997+1/12)
 
 god = cbind(dgas,doil,dwell)
 MTSplot(god)
-
-# Brute force sequential F-tests or AIC ---------------
 
 # sequentially estimate the model with 6 lags, then 5, then 4, etc. and 
 # capture the AIC each time, but also do joint F-test of all lags at each lag level
@@ -86,8 +80,6 @@ tsdisplay(residuals(x4))
 summary(x4)
 coeftest(x4,vcov=vcovHAC(x4))
 
-# Loop sequential F-tests and AIC calculation --------------
-
 # doing this in a loop:
 fp = list()
 a = list()
@@ -103,8 +95,7 @@ for (i in 2:6)
   fp[i] = Ft$`Pr(>F)`[2]
 }
 
-# Test Granger Causality ----------------
-
+# Test Granger Causality
 # do oil price changes or gas price changes granger-cause drilling activity changes?
 linearHypothesis(x4,c("L(doil, c(1:4))1=0","L(doil, c(1:4))2=0" ,"L(doil, c(1:4))3=0","L(doil, c(1:4))4=0"),vcov=vcovHAC(x4),test="F",data=x4)
 linearHypothesis(x4,c("L(dgas, c(1:4))1=0","L(dgas, c(1:4))2=0" ,"L(dgas, c(1:4))3=0","L(dgas, c(1:4))4=0"),vcov=vcovHAC(x4),test="F",data=x4)
