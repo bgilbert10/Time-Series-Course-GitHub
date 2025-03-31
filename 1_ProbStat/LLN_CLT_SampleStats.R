@@ -1,202 +1,368 @@
-# Preamble -------------
+# ======================================================================
+# LAW OF LARGE NUMBERS (LLN) AND CENTRAL LIMIT THEOREM (CLT)
+# ======================================================================
 
-# Teaching program to show LLN and CLT applied to 
-  # mean, variance, skewness, kurtosis, regression coefficients
-  # individual and joint normality tests on simulated and financial data
+# This program demonstrates the LLN and CLT applied to various sample statistics:
+# - Mean, variance, skewness, kurtosis
+# - Regression coefficients
+# - Tests for normality on simulated and financial data
 
-# Skills covered:
-  # simulating data and calculating moments
-  # plotting histogram and fitting density
-  # adding lines to plots
-  # writing a loop to fill an empty list
-  # run and summarize linear regression coefficients
-  # use regression coefficients in later analysis
-
+# --------------------- SETUP AND PACKAGE LOADING ----------------------
+# Load required packages
 if(!require(pacman)) install.packages("pacman")
-pacman::p_load(fBasics,quantmod,MASS)
+pacman::p_load(fBasics, quantmod, MASS)
 
-# Show LLN and CLT of the first four moments of simulated data 
-# do CLT for both Normal and non-Normal (Bernoulli) samples
+# ======================= POPULATION DEFINITION =======================
 
-# Define the population ---------------
-
-# Set the seed
+# Set seed for reproducibility
 set.seed(12345)
-popMean = 2.5
-popSD = 0.5
-popSkew = 0.0
-popKurt = 0.0 # Subtract 3 to get the kurtosis associated with the sample data
-X <- rnorm(1000000,mean = popMean, sd=popSD)
-hist(X, breaks=100)
-abline(v = popMean, lwd = 3, lty = 2)
 
-# Law of Large Numbers (LLN) -----------------
+# Define population parameters
+population_mean <- 2.5
+population_sd <- 0.5
+population_skew <- 0.0
+population_kurt <- 0.0  # Excess kurtosis (subtract 3 to get sample kurtosis)
 
-# Calculate moments for increasingly large samples
-mean(sample(X,10, replace = TRUE))
-mean(sample(X,100, replace = TRUE))
-mean(sample(X,1000, replace = TRUE))
-mean(sample(X,10000, replace = TRUE))
-sd(sample(X,10, replace = TRUE))
-sd(sample(X,100, replace = TRUE))
-sd(sample(X,1000, replace = TRUE))
-sd(sample(X,10000, replace = TRUE))
-skewness(sample(X,10, replace = TRUE))
-skewness(sample(X,100, replace = TRUE))
-skewness(sample(X,1000, replace = TRUE))
-skewness(sample(X,10000, replace = TRUE))
-kurtosis(sample(X,10, replace = TRUE),method = "moment")
-kurtosis(sample(X,100, replace = TRUE),method = "moment")
-kurtosis(sample(X,1000, replace = TRUE),method = "moment")
-kurtosis(sample(X,10000, replace = TRUE),method = "moment")
+# Generate a large population (million observations)
+population_data <- rnorm(1000000, mean = population_mean, sd = population_sd)
 
+# Visualize population distribution
+hist(population_data, breaks = 100, main = "Population Distribution", 
+     xlab = "Value", ylab = "Frequency")
+abline(v = population_mean, lwd = 3, lty = 2, col = "red")
 
-# Central Limit Theorem -------------------
+# ====================== LAW OF LARGE NUMBERS (LLN) ===================
 
-# Now for CLT. Take repeated samples from X all of the same size.
-# 10,000 samples of size 10, compare to samples of size 100, 1000, 10000 etc.
-# With many samples of increasingly large size... 
-# ...the distribution of the sample statistics will converge to Normal.
+# Demonstrate convergence of sample moments to population moments
+# as sample size increases
 
-## Take Samples ------------
+# Sample sizes to demonstrate
+sample_sizes <- c(10, 100, 1000, 10000)
 
-realz = 10000 # number of samples or bootstrap realizations
-N = 1000      # set to 10, 100, 1000, 10000 
-mean_list <- list()
-sd_list  <- list()
-skew_list <- list()
-kurt_list <- list()
-for(i in 1:realz) {
-  mean_list[[i]] <- mean(sample(X,N, replace = TRUE))
-  sd_list[[i]] <- sd(sample(X,N, replace = TRUE))
-  skew_list[[i]] <- skewness(sample(X,N, replace = TRUE))
-  kurt_list[[i]] <- kurtosis(sample(X,N, replace = TRUE))
+# Calculate moments for sample size 10
+sample_10 <- sample(population_data, 10, replace = TRUE)
+mean_10 <- mean(sample_10)
+sd_10 <- sd(sample_10)
+skew_10 <- skewness(sample_10)
+kurt_10 <- kurtosis(sample_10, method = "moment")
+
+# Calculate moments for sample size 100
+sample_100 <- sample(population_data, 100, replace = TRUE)
+mean_100 <- mean(sample_100)
+sd_100 <- sd(sample_100)
+skew_100 <- skewness(sample_100)
+kurt_100 <- kurtosis(sample_100, method = "moment")
+
+# Calculate moments for sample size 1000
+sample_1000 <- sample(population_data, 1000, replace = TRUE)
+mean_1000 <- mean(sample_1000)
+sd_1000 <- sd(sample_1000)
+skew_1000 <- skewness(sample_1000)
+kurt_1000 <- kurtosis(sample_1000, method = "moment")
+
+# Calculate moments for sample size 10000
+sample_10000 <- sample(population_data, 10000, replace = TRUE)
+mean_10000 <- mean(sample_10000)
+sd_10000 <- sd(sample_10000)
+skew_10000 <- skewness(sample_10000)
+kurt_10000 <- kurtosis(sample_10000, method = "moment")
+
+# Display results in a data frame
+lln_results <- data.frame(
+  SampleSize = sample_sizes,
+  Mean = c(mean_10, mean_100, mean_1000, mean_10000),
+  StdDev = c(sd_10, sd_100, sd_1000, sd_10000),
+  Skewness = c(skew_10, skew_100, skew_1000, skew_10000),
+  Kurtosis = c(kurt_10, kurt_100, kurt_1000, kurt_10000)
+)
+
+# Add population values for comparison
+population_row <- data.frame(
+  SampleSize = "Population",
+  Mean = population_mean,
+  StdDev = population_sd,
+  Skewness = population_skew,
+  Kurtosis = population_kurt
+)
+
+# Combine results
+lln_results <- rbind(lln_results, population_row)
+print(lln_results)
+
+# ====================== CENTRAL LIMIT THEOREM =======================
+
+# Demonstrates convergence of sampling distributions to normal
+# regardless of original distribution shape
+
+# Define simulation parameters
+realizations <- 10000  # Number of samples or bootstrap realizations
+sample_size <- 1000    # Set to 10, 100, 1000, or 10000 to see effect of sample size
+
+# Initialize lists to store results
+sample_means <- list()
+sample_sds <- list()
+sample_skews <- list()
+sample_kurts <- list()
+
+# Generate samples and calculate statistics
+for(i in 1:realizations) {
+  current_sample <- sample(population_data, sample_size, replace = TRUE)
+  sample_means[[i]] <- mean(current_sample)
+  sample_sds[[i]] <- sd(current_sample)
+  sample_skews[[i]] <- skewness(current_sample)
+  sample_kurts[[i]] <- kurtosis(current_sample)
 }
 
-## "True" Distributions of Sample Statistics -----------
+# Convert lists to vectors
+sample_means <- unlist(sample_means)
+sample_sds <- unlist(sample_sds)
+sample_skews <- unlist(sample_skews)
+sample_kurts <- unlist(sample_kurts)
 
-# compute population distribution for sample mean 
-# standard error of the mean is (Std. Dev of sample/square root N)
-# x = seq(0,5,0.001) says make x-axis from 0 to 5 in increments of 0.001. 
-mu = dnorm(x=seq(0,5,0.001), mean=popMean, sd=popSD/sqrt(N))
+# ================ THEORETICAL DISTRIBUTIONS =================
 
-# compute population distribution for stdev
-# trick for inverse chi-squared since R doesn't have one by default
-# integrate to get the CDF
-s = seq(0,1,0.001)
-sigmaCDF = sqrt(((N-1)*popSD*popSD)/qchisq(p=s, df=N-1))
-# then differentiate to get the PDF
-sigma = numeric(length(s)-1)
-for (i in 2:length(s)){
-  sigma[i] = (s[i]-s[i-1])/(sigmaCDF[i-1]-sigmaCDF[i])
+# Compute theoretical distributions for sample statistics
+
+# 1. Mean: Normal with mean=pop_mean and SD=pop_sd/sqrt(N)
+mean_x_range <- seq(0, 5, 0.001)
+mean_density <- dnorm(x = mean_x_range, 
+                      mean = population_mean, 
+                      sd = population_sd/sqrt(sample_size))
+
+# 2. Standard Deviation: Derived from chi-squared distribution
+sd_range <- seq(0, 1, 0.001)
+sd_cdf <- sqrt(((sample_size-1) * population_sd^2) / qchisq(p = sd_range, df = sample_size-1))
+
+# Calculate SD density by differentiating CDF
+sd_density <- numeric(length(sd_range)-1)
+for (i in 2:length(sd_range)) {
+  sd_density[i] <- (sd_range[i] - sd_range[i-1]) / (sd_cdf[i-1] - sd_cdf[i])
 }
 
-# Skew and kurtosis are Normally distributed with sd = sqrt(6/N) and sd = sqrt(24/N), respectively.
-g = dnorm(x=seq(-3,3,0.001), mean=popSkew, sd=sqrt(6/N)) # Skewness 
-g2 = dnorm(x=seq(-3,3,0.001), mean=popKurt, sd=sqrt(24/N)) # Kurtosis 
+# 3. Skewness: Normal with mean=0 and SD=sqrt(6/N)
+skew_x_range <- seq(-3, 3, 0.001)
+skew_density <- dnorm(x = skew_x_range, 
+                      mean = population_skew, 
+                      sd = sqrt(6/sample_size))
 
-## Distribution of Mean ----------------
-hist(unlist(mean_list), breaks = 500, 
-     xlab = "Mean of 10,000 samples from X of size 10", 
-     main = "CLT of sample mean",
-     cex.main = 0.8)
-abline(v = popMean, lwd = 3, col = "white", lty = 2)
-# Distribution of the population vs sample mean
-plot(density(unlist(mean_list)),ylim=c(0,max(mu)), xlab="Mean", ylab="Density", main="Distribution of the Mean")
-points(seq(0,5,0.001), mu, type='l', lwd = 2, col = "red")
-abline(v = mean(unlist(mean_list)), lwd = 1, col = "black", lty = 2)
-abline(v = popMean, lwd = 3, col = "red", lty = 2)
-legend("topright", legend=c("bootstrap density", "theoretical density", "bootstrap mean value", "population value"), 
-       col=c("black", "red", "black", "red"), lty=c(1,1,2,2), cex=0.8)
+# 4. Kurtosis: Normal with mean=0 and SD=sqrt(24/N)
+kurt_x_range <- seq(-3, 3, 0.001)
+kurt_density <- dnorm(x = kurt_x_range, 
+                      mean = population_kurt, 
+                      sd = sqrt(24/sample_size))
 
-## Distribution of Std. Dev. --------------
-hist(unlist(sd_list), breaks = 500, 
-     xlab = "Variance of 10,000 samples from X of size 10", 
-     main = "CLT of sample variance",
-     cex.main = 0.8)
-abline(v = popSD^2, lwd = 3, col = "white", lty = 2)
-# Distribution of the population vs. sample standard deviation
-plot(density(unlist(sd_list)), ylim=c(0,max(sigma)), xlab="Standard Deviation", ylab="Density", main="Distribution of the Std. Dev")
-points(sigmaCDF, sigma, type='l', lwd = 2, col = "red")
-abline(v = mean(unlist(sd_list)), lwd = 1, col = "black", lty = 2)
-abline(v = popSD, lwd = 3, col = "red", lty = 2)
-legend("topright", legend=c("bootstrap density", "theoretical density", "bootstrap mean value", "population value"), 
-       col=c("black", "red", "black", "red"), lty=c(1,1,2,2), cex=0.8)
+# ================ PLOT SAMPLING DISTRIBUTIONS =================
 
-## Distribution of Skewness ----------------
-hist(unlist(skew_list), breaks = 500, 
-     xlab = "Skewness of 10,000 samples from X of size 10", 
-     main = "CLT of sample skewness",
-     cex.main = 0.8)
-abline(v = popSkew, lwd = 3, col = "white", lty = 2)
-# Distribution of the population vs sample skew
-plot(density(unlist(skew_list)), ylim=c(0,max(g)), xlab="Skewness", ylab="Density", main="Distribution of the Skewness")
-points(seq(-3,3,0.001), g, type='l', lwd = 2, col = "red")
-abline(v = mean(unlist(skew_list)), lwd = 1, col = "black", lty = 2)
-abline(v = popSkew, lwd = 3, col = "red", lty = 2)
-legend("topright", legend=c("bootstrap density", "theoretical density", "bootstrap mean value", "population value"), 
-       col=c("black", "red", "black", "red"), lty=c(1,1,2,2), cex=0.8)
-
-## Distribution of Kurtosis ---------------
-hist(unlist(kurt_list), breaks = 500, 
-     xlab = "Kurtosis of 10,000 samples from X of size 10", 
-     main = "CLT of sample kurtosis",
-     cex.main = 0.8)
-abline(v = popKurt, lwd = 3, col = "white", lty = 2)
-# Distribution of the population vs sample kurtosis
-plot(density(unlist(kurt_list)), ylim=c(0,max(g2)), xlab="Kurtosis", ylab="Density", main="Distribution of the Kurtosis")
-points(seq(-3,3,0.001), g2, type='l', lwd = 2, col = "red")
-abline(v = mean(unlist(kurt_list)), lwd = 1, col = "black", lty = 2)
-abline(v = popKurt, lwd = 3, col = "red", lty = 2)
-legend("topright", legend=c("bootstrap density", "theoretical density", "bootstrap mean value", "population value"), 
-       col=c("black", "red", "black", "red"), lty=c(1,1,2,2), cex=0.8)
-
-## CLT for Non-Normal Distribution --------------
-
-# Show that this works even if we weren't sampling from a Normal distribution
-# sample from coin flips
-population <- sample(c(0,1), 1000000, replace = TRUE)
-hist(population, main = "Non-normal", cex.main = 0.8)
-abline(v = mean(population), lwd = 3, lty = 3)
-
-mean_list <- list()
-for(i in 1:realz) {
-  mean_list[[i]] <- mean(sample(population, N, replace = TRUE))
+# Plot distribution of sample means
+plot_sampling_distribution <- function(sample_stat, theoretical_x, theoretical_y, 
+                                     title, xlab, true_value) {
+  # Plot histogram
+  hist(sample_stat, breaks = 100, 
+       main = title,
+       xlab = xlab, 
+       freq = FALSE)
+  
+  # Add vertical line at true parameter value
+  abline(v = true_value, lwd = 3, col = "red", lty = 2)
+  
+  # Add theoretical density curve
+  lines(theoretical_x, theoretical_y, col = "blue", lwd = 2)
+  
+  # Add legend
+  legend("topright", 
+         legend = c("Empirical distribution", "Theoretical distribution", "Population value"),
+         col = c("black", "blue", "red"), 
+         lty = c(1, 1, 2),
+         lwd = c(1, 2, 3))
 }
-hist(unlist(mean_list), main = "Distribution of averages", cex.main = 0.8, xlab = "Average of samples with N=100")
-abline(v = 0.5, lwd = 3)
 
-# LLN and CLT for Regression Coefficients -----------------
+# Plot all distributions
+par(mfrow = c(2, 2))
 
-## Create the population ---------------
+# Mean
+plot_sampling_distribution(
+  sample_means, 
+  mean_x_range, 
+  mean_density,
+  paste("Distribution of Sample Means (n =", sample_size, ")"),
+  "Sample Mean",
+  population_mean
+)
 
-eps <- rnorm(1000000, mean=0, sd=2)
-beta0 = 0.5
-beta1 = 0.8
-Y <- beta0 + beta1*X + eps
+# Standard Deviation
+plot_sampling_distribution(
+  sample_sds, 
+  sd_cdf, 
+  sd_density,
+  paste("Distribution of Sample Std. Dev. (n =", sample_size, ")"),
+  "Sample Standard Deviation",
+  population_sd
+)
 
-summary(lm(Y~X))
+# Skewness
+plot_sampling_distribution(
+  sample_skews, 
+  skew_x_range, 
+  skew_density,
+  paste("Distribution of Sample Skewness (n =", sample_size, ")"),
+  "Sample Skewness",
+  population_skew
+)
 
-## LLN for coefficients ------------------
-Z = cbind(Y,X)
-s10 <- Z[sample(nrow(Z),10,replace=TRUE),]
-summary(lm(s10[,1]~s10[,2]))
-s100 <- Z[sample(nrow(Z),100,replace=TRUE),]
-summary(lm(s100[,1]~s100[,2]))
-s1000 <- Z[sample(nrow(Z),1000,replace=TRUE),]
-summary(lm(s1000[,1]~s1000[,2]))
-s10000 <- Z[sample(nrow(Z),10000,replace=TRUE),]
-summary(lm(s10000[,1]~s10000[,2]))
+# Kurtosis
+plot_sampling_distribution(
+  sample_kurts, 
+  kurt_x_range, 
+  kurt_density,
+  paste("Distribution of Sample Kurtosis (n =", sample_size, ")"),
+  "Sample Kurtosis",
+  population_kurt
+)
 
-## CLT for coefficients ------------------
-b0_list <- list()
-b1_list <- list()
-for(i in 1:realz) {
-  sNx <- Z[sample(nrow(Z),N,replace=TRUE),]
-  b0_list[[i]] <- lm(sNx[,1]~sNx[,2])$coefficients[1]
-  b1_list[[i]] <- lm(sNx[,1]~sNx[,2])$coefficients[2]
+par(mfrow = c(1, 1))
+
+# ============== CLT FOR NON-NORMAL DISTRIBUTION ===============
+
+# Demonstrate CLT for a non-normal (Bernoulli) distribution
+# Create a binary population (coin flips)
+bernoulli_population <- sample(c(0, 1), 1000000, replace = TRUE)
+
+# Plot the population distribution
+hist(bernoulli_population, breaks = 3, main = "Non-normal Population (Bernoulli)",
+     xlab = "Value", ylab = "Frequency")
+abline(v = mean(bernoulli_population), lwd = 3, lty = 3, col = "red")
+
+# Collect sample means from the Bernoulli population
+bernoulli_means <- list()
+for(i in 1:realizations) {
+  bernoulli_means[[i]] <- mean(sample(bernoulli_population, sample_size, replace = TRUE))
 }
-hist(unlist(b0_list), main = "Distribution of intercepts", cex.main = 0.8, xlab = "Intercepts with N=100")
-abline(v = beta0, lwd = 3)
-hist(unlist(b1_list), main = "Distribution of slopes", cex.main = 0.8, xlab = "Slopes with N=100")
-abline(v = beta1, lwd = 3)
+bernoulli_means <- unlist(bernoulli_means)
+
+# Plot the sampling distribution of means
+hist(bernoulli_means, breaks = 50, 
+     main = "CLT: Distribution of Bernoulli Sample Means", 
+     xlab = paste("Average of samples with n =", sample_size),
+     freq = FALSE)
+abline(v = 0.5, lwd = 3, col = "red")
+
+# Add theoretical normal curve
+theoretical_x <- seq(min(bernoulli_means), max(bernoulli_means), length.out = 100)
+theoretical_y <- dnorm(theoretical_x, mean = 0.5, sd = sqrt(0.25/sample_size))
+lines(theoretical_x, theoretical_y, col = "blue", lwd = 2)
+
+legend("topright", 
+       legend = c("Empirical distribution", "Theoretical distribution", "Population mean"),
+       col = c("black", "blue", "red"), 
+       lty = c(1, 1, 1),
+       lwd = c(1, 2, 3))
+
+# ================ LLN AND CLT FOR REGRESSION ==================
+
+# Create a population for regression
+# Use the population_data as X
+x_variable <- population_data
+
+# Define true regression parameters
+true_intercept <- 0.5
+true_slope <- 0.8
+
+# Create error term
+error_term <- rnorm(1000000, mean = 0, sd = 2)
+
+# Generate dependent variable
+y_variable <- true_intercept + true_slope * x_variable + error_term
+
+# Store X and Y together for sampling
+regression_data <- cbind(y_variable, x_variable)
+
+# Run regression on full population
+population_model <- lm(y_variable ~ x_variable)
+summary(population_model)
+
+# =================== LLN FOR REGRESSION ======================
+
+# Demonstrate LLN for regression coefficients
+sample_sizes <- c(10, 100, 1000, 10000)
+
+# Function to sample and run regression
+sample_regression <- function(data, size) {
+  sample_indices <- sample(nrow(data), size, replace = TRUE)
+  sample_data <- data[sample_indices, ]
+  model <- lm(sample_data[, 1] ~ sample_data[, 2])
+  return(coef(model))
+}
+
+# Sample size 10
+sample_10_coefs <- sample_regression(regression_data, 10)
+
+# Sample size 100
+sample_100_coefs <- sample_regression(regression_data, 100)
+
+# Sample size 1000
+sample_1000_coefs <- sample_regression(regression_data, 1000)
+
+# Sample size 10000
+sample_10000_coefs <- sample_regression(regression_data, 10000)
+
+# Create results table
+regression_lln <- data.frame(
+  SampleSize = sample_sizes,
+  Intercept = c(sample_10_coefs[1], sample_100_coefs[1], 
+               sample_1000_coefs[1], sample_10000_coefs[1]),
+  Slope = c(sample_10_coefs[2], sample_100_coefs[2], 
+           sample_1000_coefs[2], sample_10000_coefs[2])
+)
+
+# Add true values
+regression_lln <- rbind(regression_lln, 
+                      data.frame(SampleSize = "True", 
+                                Intercept = true_intercept, 
+                                Slope = true_slope))
+print(regression_lln)
+
+# =================== CLT FOR REGRESSION ======================
+
+# Demonstrate CLT for regression coefficients
+intercept_samples <- list()
+slope_samples <- list()
+
+for(i in 1:realizations) {
+  sample_indices <- sample(nrow(regression_data), sample_size, replace = TRUE)
+  sample_data <- regression_data[sample_indices, ]
+  model <- lm(sample_data[, 1] ~ sample_data[, 2])
+  intercept_samples[[i]] <- coef(model)[1]
+  slope_samples[[i]] <- coef(model)[2]
+}
+
+intercept_samples <- unlist(intercept_samples)
+slope_samples <- unlist(slope_samples)
+
+# Plot sampling distributions of regression coefficients
+par(mfrow = c(1, 2))
+
+# Intercept
+hist(intercept_samples, breaks = 50, 
+     main = "Distribution of Regression Intercepts", 
+     xlab = paste("Intercepts with n =", sample_size))
+abline(v = true_intercept, lwd = 3, col = "red")
+
+# Add theoretical normal curve
+theoretical_x <- seq(min(intercept_samples), max(intercept_samples), length.out = 100)
+theoretical_y <- dnorm(theoretical_x, mean = true_intercept, 
+                     sd = sd(intercept_samples))
+lines(theoretical_x, theoretical_y, col = "blue", lwd = 2)
+
+# Slope
+hist(slope_samples, breaks = 50, 
+     main = "Distribution of Regression Slopes", 
+     xlab = paste("Slopes with n =", sample_size))
+abline(v = true_slope, lwd = 3, col = "red")
+
+# Add theoretical normal curve
+theoretical_x <- seq(min(slope_samples), max(slope_samples), length.out = 100)
+theoretical_y <- dnorm(theoretical_x, mean = true_slope, 
+                     sd = sd(slope_samples))
+lines(theoretical_x, theoretical_y, col = "blue", lwd = 2)
+
+par(mfrow = c(1, 1))

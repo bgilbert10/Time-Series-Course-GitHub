@@ -1,113 +1,154 @@
-# Preamble --------------
+# ======================================================================
+# JOINT DISTRIBUTION OF FINANCIAL RETURNS - HEATMAPS AND HISTOGRAMS
+# ======================================================================
 
-# A program to plot heat maps and histograms
-# Packages we will use
+# --------------------- SETUP AND PACKAGE LOADING ----------------------
+# Load required packages for data retrieval, visualization, and analysis
+# install.packages("quantmod")  # Uncomment to install if needed
+library(quantmod)                # For financial data retrieval
+# install.packages("ggplot2")   # Uncomment to install if needed
+library(ggplot2)                 # For advanced plotting
+# install.packages("plyr")      # Uncomment to install if needed
+library(plyr)                    # For data manipulation
+# install.packages("epitools")  # Uncomment to install if needed
+library(epitools)                # For epidemiological tools
+# install.packages("gplots")    # Uncomment to install if needed
+library(gplots)                  # For enhanced plotting
+# install.packages("reshape2")  # Uncomment to install if needed
+library(reshape2)                # For reshaping data
+# install.packages("MASS")      # Uncomment to install if needed
+library(MASS)                    # For statistical functions
+# install.packages("RColorBrewer") # Uncomment to install if needed
+library(RColorBrewer)            # For color palettes
 
-# install.packages("quantmod")
-library(quantmod)
-# install.packages("ggplot2")
-library(ggplot2)
-# install.packages("plyr")
-library(plyr)
-#install.packages("epitools")
-library(epitools)
-#install.packages("gplots")
-library(gplots)
+# Alternative package loading approach
+# if(!require(pacman)) install.packages("pacman")
+# pacman::p_load(quantmod, ggplot2, plyr, epitools, gplots, reshape2, MASS, RColorBrewer)
 
-#install.packages("reshape2")
-library(reshape2)
-#install.packages("MASS")
-library(MASS)      
-#install.packages("RColorBrewer")
-library(RColorBrewer)
+# Store plotting margin defaults for later restoration
+par_default <- par()
 
-# Alternatively, use pacman:
-#if(!require(pacman)) install.packages("pacman")
-#pacman::p_load(quantmod,ggplot2,plyr,epitools,gplots,reshape2,MASS,RColorBrewer)
+# --------------------- DATA ACQUISITION -------------------------------
+# Fetch market indices and calculate returns
 
-# store plotting margin defaults
-.pardefault <- par()
-
-# Get price data and calculate returns --------------
-
-# download Market Indices, calculate returns, and chart basic graphs
-
-getSymbols("XLE",from="2000-01-03") # default pulls from yahoo finance
-                                    # could ad src="google" or src="FRED". 
-                                    # default time span is 1/3/07 to present
+# Download data for Energy sector ETF
+getSymbols("XLE", from="2000-01-03")
 # XLE is symbol for the SPDR Energy ETF
-chartSeries(XLE,type=c("line"),theme="white",TA=NULL)
-XLE.dlrtn = 100*dailyReturn(XLE,leading=FALSE,type='log')   # daily log return
-XLE.mlrtn = 100*monthlyReturn(XLE,leading=FALSE,type='log') # monthly log return
+# Plot price chart
+chartSeries(XLE, type=c("line"), theme="white", TA=NULL, 
+            main="SPDR Energy ETF (XLE) Prices")
+# Calculate returns
+xle_daily_log_returns = 100*dailyReturn(XLE, leading=FALSE, type='log')
+xle_monthly_log_returns = 100*monthlyReturn(XLE, leading=FALSE, type='log')
 
-getSymbols("SPY",from="2000-01-03")   
+# Download data for S&P 500 Index ETF
+getSymbols("SPY", from="2000-01-03")
 # SPY is the symbol for the S&P 500 Index
-chartSeries(SPY,type=c("line"),theme="white",TA=NULL)
-SPY.dlrtn = 100*dailyReturn(SPY,leading=FALSE,type='log')
-SPY.mlrtn = 100*monthlyReturn(SPY,leading=FALSE,type='log')
+# Plot price chart
+chartSeries(SPY, type=c("line"), theme="white", TA=NULL,
+            main="S&P 500 ETF (SPY) Prices")
+# Calculate returns
+spy_daily_log_returns = 100*dailyReturn(SPY, leading=FALSE, type='log')
+spy_monthly_log_returns = 100*monthlyReturn(SPY, leading=FALSE, type='log')
 
-qplot(SPY.dlrtn,XLE.dlrtn)
+# Create simple scatterplot of returns
+qplot(spy_daily_log_returns, xle_daily_log_returns, 
+      main="S&P 500 vs Energy Sector Daily Returns",
+      xlab="SPY Returns (%)", ylab="XLE Returns (%)")
 
-# Change formatting to "ts" object -----------------
+# --------------------- DATA PREPARATION -------------------------------
+# Convert to time series objects for easier handling
 
-# getSymbols/quantmod stores the data as a "zoo" object. 
-# A "ts" object is sometimes easier to work with, 
-# so transform returns data to "ts"
-spy=na.omit(ts(SPY.dlrtn))
-xle=na.omit(ts(XLE.dlrtn))
-df=cbind(spy,xle)
+# Transform returns data from "zoo" object to "ts" object 
+spy_returns = na.omit(ts(spy_daily_log_returns))
+xle_returns = na.omit(ts(xle_daily_log_returns))
+# Combine into a single data frame
+returns_df = cbind(spy_returns, xle_returns)
 
-# Construct the heat map and histograms -----------------
+# ---------------------- HEAT MAP CREATION ---------------------------
+# Create heat map with histograms along the axes
 
-# make the histogram objects that will go along the axes
-hspy <- hist(spy, breaks=25, plot=F)
-hxle <- hist(xle, breaks=25, plot=F)
+# Create histogram objects for the axes
+spy_hist <- hist(spy_returns, breaks=25, plot=FALSE)
+xle_hist <- hist(xle_returns, breaks=25, plot=FALSE)
 
-# now create the combination heat map/histogram graph
-top = max(hspy$counts,hxle$counts)
-hd=hist2d(df,nbins=50,FUN=function(x)
-  log(length(x)))
+# Calculate maximum count for scaling
+top_count = max(spy_hist$counts, xle_hist$counts)
 
-par(mar=c(3,3,1,1))
-layout(matrix(c(2,0,1,3),2,2,byrow=T),c(3,1), c(1,3))
-hd=hist2d(df,nbins=50,FUN=function(x)
-  log(length(x)))
-par(mar=c(0,2,1,0))
-barplot(hspy$counts, axes=F, ylim=c(0, top), space=0, col='red')
-par(mar=c(2,0,0.5,1))
-barplot(hxle$counts, axes=F, xlim=c(0, top), space=0, col='red', horiz=T)
+# Function to calculate logarithm of number of points in each bin
+bin_log_count <- function(x) log(length(x))
 
-par(.pardefault) # restore the previous graphical layout
+# Create layout for combination heat map/histogram graph
+par(mar=c(3, 3, 1, 1))
+layout(matrix(c(2, 0, 1, 3), 2, 2, byrow=TRUE), c(3, 1), c(1, 3))
 
+# Create 2D histogram (heat map)
+heatmap_data = hist2d(returns_df, nbins=50, FUN=bin_log_count)
 
-# Alternative graphing approach ----------------
+# Create histograms along the axes
+par(mar=c(0, 2, 1, 0))
+barplot(spy_hist$counts, axes=FALSE, ylim=c(0, top_count), space=0, 
+        col='red', main="S&P 500 Returns")
+
+par(mar=c(2, 0, 0.5, 1))
+barplot(xle_hist$counts, axes=FALSE, xlim=c(0, top_count), space=0, 
+        col='red', horiz=TRUE, main="Energy Sector Returns")
+
+# Restore original graphical parameters
+par(par_default)
+
+# ---------------------- ALTERNATIVE APPROACH -------------------------
+# Create heat map using kernel density estimation
 
 # Define extent of X and Y graph axes
-tab=dcast(df,cut(spy,breaks=c(-15,-10,-5,0,5,10,15))~cut(xle,breaks=c(-20,-10,0,10,20)))
+return_table = dcast(returns_df, 
+                    cut(spy_returns, breaks=c(-15, -10, -5, 0, 5, 10, 15)) ~ 
+                    cut(xle_returns, breaks=c(-20, -10, 0, 10, 20)))
 
-# choose color pallette
-rf <- colorRampPalette(rev(brewer.pal(11,'Spectral')))
-r <- rf(32)
+# Choose color palette from RColorBrewer
+color_function <- colorRampPalette(rev(brewer.pal(11, 'Spectral')))
+color_palette <- color_function(32)
 
-# make heat map image
-hd2=kde2d(spy,xle,n=500)
-image(hd2,col=r)
+# Create kernel density estimation
+kde_data = kde2d(spy_returns, xle_returns, n=500)
 
-# combine heat map with histograms
-top = max(hspy$counts,hxle$counts)
-hd3=kde2d(spy,xle,n=200)
-par(mar=c(3,3,1,1))
-layout(matrix(c(2,0,1,3),2,2,byrow=T),c(3,1), c(1,3))
-image(hd3, col=r) #plot the image
-par(mar=c(0,2,1,0))
-barplot(hspy$counts, axes=F, ylim=c(0, top), space=0, col='red')
-par(mar=c(2,0,0.5,1))
-barplot(hxle$counts, axes=F, xlim=c(0, top), space=0, col='red', horiz=T)
+# Plot kernel density image
+image(kde_data, col=color_palette, 
+      main="Kernel Density Estimation of Joint Returns Distribution",
+      xlab="S&P 500 Returns (%)", ylab="Energy Sector Returns (%)")
 
-par(.pardefault)
+# Add contour lines
+contour(kde_data, add=TRUE, nlevels=10)
 
+# Create combined plot with histograms
+# Set up layout 
+par(mar=c(3, 3, 1, 1))
+layout(matrix(c(2, 0, 1, 3), 2, 2, byrow=TRUE), c(3, 1), c(1, 3))
 
+# Plot kernel density estimation
+kde_data_lower = kde2d(spy_returns, xle_returns, n=200)
+image(kde_data_lower, col=color_palette,
+      main="Joint Distribution of Returns",
+      xlab="S&P 500 Returns (%)", ylab="Energy Sector Returns (%)")
+contour(kde_data_lower, add=TRUE, nlevels=5)
 
+# Create histograms along the axes
+par(mar=c(0, 2, 1, 0))
+barplot(spy_hist$counts, axes=FALSE, ylim=c(0, top_count), space=0, 
+        col='red', main="S&P 500")
 
+par(mar=c(2, 0, 0.5, 1))
+barplot(xle_hist$counts, axes=FALSE, xlim=c(0, top_count), space=0, 
+        col='red', horiz=TRUE, main="Energy Sector")
 
+# Restore original graphical parameters
+par(par_default)
 
+# ---------------------- CORRELATION ANALYSIS ------------------------
+# Calculate correlation and test its significance
+correlation_value <- cor(spy_returns, xle_returns, use="complete.obs")
+print(paste("Correlation between SPY and XLE returns:", round(correlation_value, 4)))
+
+# Test significance of correlation
+correlation_test <- cor.test(spy_returns, xle_returns)
+print(correlation_test)

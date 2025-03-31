@@ -9,456 +9,536 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Bias, Efficiency, and the Gauss Markov Theorem
+# Bias, Efficiency, and the Gauss Markov Theorem
 
-* This is a program to illustrate bias and inefficiency when Gauss Markov assumptions fail
+## Overview
 
-  + Bias: deviation of expected value of sample parameter estimate from "true" population parameter
+This program illustrates bias and inefficiency when Gauss Markov assumptions fail:
 
-  + Efficiency: the variance of the sample parameter estimate should be as small as possible
+- **Bias**: Deviation of expected value of sample parameter estimate from "true" population parameter
+- **Efficiency**: The variance of the sample parameter estimate should be as small as possible
+- **Consistency**: Distribution of sample parameter estimate should converge to population value as sample size grows
 
-  + Consistency: distribution of sample parameter estimate should converge to population value as sample size grows
+The Gauss-Markov theorem states that OLS (Ordinary Least Squares) is the Best (lowest variance) Linear Unbiased Estimator (BLUE) IF:
 
-* Gauss-Markov: OLS (Ordinary Least Squares) is Best (lowest variance) Linear Unbiased Estimator (BLUE) IF:
-
-  1. true model linear in parameters and residuals: 
+1. True model is linear in parameters and residuals: 
 $$
-y_t = \beta_0 + \beta_1*x_{1t} + \beta_2*x_{2t} + e_t
+y_t = \beta_0 + \beta_1 x_{1t} + \beta_2 x_{2t} + e_t
 $$
 
-  2. X variables (right hand side) are not constants or perfectly correlated with each other
+2. X variables (right hand side) are not constants or perfectly correlated with each other
 
-  3. Residuals "e" have constant variance 
+3. Residuals "e" have constant variance (homoskedasticity vs. heteroskedasticity)
+   - Not more noisy for some X's than others
 
-    - (not more noisy for some X's than others, homoskedasticity vs. heteroskedasticy)
+4. Residuals "e" are uncorrelated with each other 
+   - No peer effects, no serial correlation
 
-  4. Residuals "e" are uncorrelated with each other 
-    
-    - (no peer effects, no serial correlation)
+5. All X variables are uncorrelated with the residual e 
+   - Observed X is not picking up some unobserved or uncontrolled factor
 
-  5. All X variables are uncorrelated with the residual e 
-    - (observed X is not picking up some unobserved or uncontrolled factor)
-
-* In each case we will run the linear regression 
+In each case we will run the linear regression 
 $$
-y_t = \beta_0 + \beta_1*x_{1t} + \beta_2*x_{2t} + e_t
+y_t = \beta_0 + \beta_1 x_{1t} + \beta_2 x_{2t} + e_t
 $$ 
-on the data, but the "true" model or "data generating process" is different
+on the data, but the "true" model or "data generating process" is different.
 
 ***
 
-### Define directory and load packages
+## Environment Setup
 
-Load (and install if necessary) any packages that we want to use. If we want to define a working directory for this session, we can. 
+### Loading Required Packages
 
-```{r pckges, eval=FALSE, message=FALSE}
-setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse/Fall2021")
-# install.packages("MASS")
-require(MASS)
-# install.packages("car")
-require(car)
+Load (and install if necessary) any packages that we want to use.
+
+```{r package_loading, eval=FALSE, message=FALSE}
+# Set working directory (adjust path as needed)
+setwd("C:/Users/gilbe/Dropbox/Econometrics/TimeSeriesCourse")
+
+# Load required packages
+# install.packages("MASS") # Uncomment to install if needed
+library(MASS)              # For multivariate normal distribution
+# install.packages("car")  # Uncomment to install if needed
+library(car)               # For scatterplot matrices
 ```
 
-```{r echo=FALSE, message=FALSE}
-setwd("C:/Users/bgilbert_a/Dropbox/Econometrics/TimeSeriesCourse/Fall2021")
-# install.packages("MASS")
-require(MASS)
-# install.packages("car")
-require(car)
-```
+```{r hidden_setup, echo=FALSE, message=FALSE}
+# Set working directory (adjust path as needed)
+# setwd("C:/Users/gilbe/Dropbox/Econometrics/TimeSeriesCourse") 
 
-***
-
-### Violate Assumption 1: True model is not linear in parameters
-
-* Set the seed for replicability.
-* Generate the true model
-
-```{r data1}
-set.seed(826)
-# Covariance matrix of x1, x2, and e 
-Sig <- matrix(c(4,1,0,1,2,0,0,0,1),3,3)
-Sig       # Notice e does not covary with x1 or x2 (assumption 5) 
-          # also x1 and x2 can covary, but not perfectly (assumption 2)
-
-# Mean of x1, x2, and e
-moo <- c(10,3,0)
-
-# generate data
-Xe <- mvrnorm(n=1000,mu=moo,Sigma=Sig)
-
-# give the variables names
-colnames(Xe)<-c("x1","x2","e")
-
-# store as a data frame
-Xe <- as.data.frame(Xe)
-head(Xe)
-```
-
-* Investigate the data. 
-
-  + plot empirical distribution of each variable
-
-```{r}
-hist(Xe$x1, breaks = 100, cex.main = 0.9)
-hist(Xe$x2, breaks = 100, cex.main = 0.9)
-hist(Xe$e, breaks = 100, cex.main = 0.9)
-# Sample correlations and covariances (notice difference from "truth")
-cov(Xe)
-cor(Xe)
-scatterplotMatrix(Xe)
-```
-
-* Generate the true model for outcome $y$
-
-```{r}
-y <- exp(10 - 6*Xe$x1 + 5*Xe$x2 + Xe$e) # log(y) is linear in parameters and 
-                                        # residual, but y is not.
-plot(Xe$x1,y)
-plot(Xe$x1,log(y))
-plot(Xe$x2,y)
-plot(Xe$x2,log(y))
-```
-
-* Run the linear regression when the true model is linear vs not linear. 
-
-```{r}
-summary(lm(y~x1+x2,data=Xe))
-summary(lm(log(y)~x1+x2,data=Xe))
-```
-
-*** 
-
-### Violate Assumption 2: Right hand side variables are constants or are perfectly correlated
-
-* NOTE: The intercept is a constant, but no other variables can be constant 
-
-  - otherwise perfectly correlated with the intercept
-  
-* Set the seed for replicability.
-* Generate the true model
-
-```{r}
-set.seed(826)
-# Covariance matrix of x1 and e 
-Sig <- matrix(c(4,0,0,1),2,2)
-Sig       # Notice e does not covary with x1 (assumption 5) 
-# We will make x2 an exact multiple of x1 (violate assumption 2)
-# Mean of x1 and e
-moo <- c(10,0)
-# generate data
-Xe <- mvrnorm(n=1000,mu=moo,Sigma=Sig)
-# generate x2 as arbitrary multiple of x1
-x2 <- 7*Xe[,1]
-Xe <- as.data.frame(cbind(Xe[,1],x2,Xe[,2]))
-# give the variables names
-colnames(Xe)<-c("x1","x2","e")
-head(Xe)
-```
-
-* Investigate sample correlations and covariances 
-
-  - notice difference from "truth"
-
-```{r}
-cov(Xe)
-cor(Xe)
-scatterplotMatrix(Xe)
-```
-
-* Generate the true $y$ (outcome)
-
-```{r}
-y <- 10 - 6*Xe$x1 + 5*Xe$x2 + Xe$e # y is linear in parameters (assumption 1)
-plot(Xe$x1,y)
-plot(Xe$x2,y) # Should be a tight fit!
-```
-
-* Run the linear regression
-
-```{r}
-summary(lm(y~x1+x2,data=Xe)) # Why an intercept of 10 and coefficient of 29? 
-                             # -6 + 5*7 = 29
-                             # some stats packages will not produce output
-
-# NOTE: regressing on an intercept ONLY estimates the mean of y - intercept can 
-# be constant. 
-mean(y)
-summary(lm(y~1))
-```
-
-* But what if another regressor is also constant?
-
-```{r}
-set.seed(826)
-# Covariance matrix of x1, x2, and e 
-Sig <- matrix(c(4,0,0,0,0,0,0,0,1),3,3)
-Sig       # Notice e does not covary with x1 or x2 (assumption 5) 
-          # But x2 also has no variance (violate assumption 2)
-# Mean of x1, x2, and e
-moo <- c(10,3,0)
-# generate data
-Xe <- mvrnorm(n=1000,mu=moo,Sigma=Sig)
-# give the variables names
-colnames(Xe)<-c("x1","x2","e")
-Xe <- as.data.frame(Xe)
-head(Xe)
-
-# Sample correlations and covariances (notice difference from "truth")
-cov(Xe)
-cor(Xe)
-scatterplotMatrix(Xe)
-
-# generate the true y (outcome)
-y <- 10 - 6*Xe$x1 + 5*Xe$x2 + Xe$e # y is linear in parameters (assumption 1)
-plot(Xe$x1,y)
-plot(Xe$x2,y) # Should be a tight fit!
-
-# run the linear regression
-summary(lm(y~x1+x2,data=Xe)) # Why an intercept of 25 and coefficient of -6? 
-                             # 10 + 5*3
-                             # some stats packages will not even produce output
+# Load required packages
+library(MASS)
+library(car)
 ```
 
 ***
 
-### Violate Assumption 3: Residuals "e" do not have constant variance 
+## 1. Violating Assumption 1: Non-linear Model
 
-* Residuals are "heteroskedastic" (different variance)
+When the true model is not linear in parameters, OLS estimates will be biased.
 
-  - Variance changes at different places in the population 
-  - For different values of $X$ or different time periods $t$
-  
-* Set the seed and generate the true model
+### Data Generation
 
-```{r}
+```{r nonlinear_data_generation}
+# Set seed for reproducibility
 set.seed(826)
-# Covariance matrix of x1, x2
-Sig <- matrix(c(4,1,1,2),2,2)
-Sig       
-# Mean of x1, x2
-moo <- c(10,3)
-# generate data
-Xe <- mvrnorm(n=1000,mu=moo,Sigma=Sig)
 
-# generate homoskedastic residuals
-eps = rnorm(n=1000,mean=0,sd=sqrt(1))
+# Create covariance matrix of x1, x2, and e 
+covariance_matrix <- matrix(c(4,1,0,1,2,0,0,0,1), 3, 3)
+covariance_matrix       
+# Notice: e does not covary with x1 or x2 (assumption 5) 
+# Also x1 and x2 can covary, but not perfectly (assumption 2)
 
-# generate heteroskedastic residuals
-sigma2 = (eps^2)*(Xe[,1]^2+Xe[,2]^2)
-eps2 = rnorm(n=1000,mean=0,sd=sqrt(sigma2))
+# Define mean vector for x1, x2, and e
+mean_vector <- c(10, 3, 0)
 
-Xe1 = as.data.frame(cbind(Xe,eps))
-colnames(Xe1)<-c("x1","x2","e1")
-Xe2 = as.data.frame(cbind(Xe,eps2))
-colnames(Xe2)<-c("x1","x2","e2")
+# Generate multivariate normal data
+simulated_data <- mvrnorm(n=1000, mu=mean_vector, Sigma=covariance_matrix)
+
+# Assign column names
+colnames(simulated_data) <- c("x1", "x2", "e")
+
+# Convert to data frame for easier manipulation
+simulated_data <- as.data.frame(simulated_data)
+head(simulated_data)
 ```
 
-* Investigate sample correlations and covariances 
+### Exploratory Data Analysis
 
-  - notice difference from "truth"
+Visualize the distributions of the variables:
 
-```{r}
-scatterplotMatrix(Xe1)
-scatterplotMatrix(Xe2)
+```{r nonlinear_data_exploration}
+# Plot histograms of each variable
+hist(simulated_data$x1, breaks = 100, main="Distribution of x1", 
+     xlab="x1", ylab="Frequency")
+hist(simulated_data$x2, breaks = 100, main="Distribution of x2",
+     xlab="x2", ylab="Frequency")
+hist(simulated_data$e, breaks = 100, main="Distribution of Error Term",
+     xlab="e", ylab="Frequency")
+
+# Calculate and display correlation and covariance matrices
+cov(simulated_data)
+cor(simulated_data)
+
+# Create scatterplot matrix to visualize relationships
+scatterplotMatrix(simulated_data)
 ```
 
-* Generate the true $y$ (outcome)
+### Generate Non-linear Outcome Variable
 
-```{r}
-y1 <- 10 - 6*Xe1$x1 + 5*Xe1$x2 + Xe1$e1
-y2 <- 10 - 6*Xe2$x1 + 5*Xe2$x2 + Xe2$e2
+```{r nonlinear_outcome}
+# Generate exponential outcome (non-linear in parameters)
+outcome_y <- exp(10 - 6*simulated_data$x1 + 5*simulated_data$x2 + simulated_data$e)
+# Note: log(y) is linear in parameters and residual, but y is not
+
+# Plot relationships between predictors and outcome
+par(mfrow=c(2,2))
+plot(simulated_data$x1, outcome_y, main="y vs x1", xlab="x1", ylab="y")
+plot(simulated_data$x1, log(outcome_y), main="log(y) vs x1", xlab="x1", ylab="log(y)")
+plot(simulated_data$x2, outcome_y, main="y vs x2", xlab="x2", ylab="y")
+plot(simulated_data$x2, log(outcome_y), main="log(y) vs x2", xlab="x2", ylab="log(y)")
+par(mfrow=c(1,1))
 ```
 
-* Notice there are not necessarily obvious differences in the plot
+### Model Fitting
 
-```{r}
-plot(Xe1$x1,y1)
-plot(Xe2$x1,y2) 
-```
+```{r nonlinear_models}
+# Run linear regression on misspecified model (should be biased)
+model_misspecified <- lm(outcome_y ~ x1 + x2, data=simulated_data)
+summary(model_misspecified)
 
-* Run the linear regression 
-
-  - notice the difference in residual standard error, coefficient std. error, Rsquared. 
-  
-```{r}
-summary(lm(y1~x1+x2,data=Xe1)) 
-summary(lm(y2~x1+x2,data=Xe2))
+# Run correct model with log transformation (should be unbiased)
+model_correct <- lm(log(outcome_y) ~ x1 + x2, data=simulated_data)
+summary(model_correct)
 ```
 
 ***
 
-### Violate Assumption 4: Residuals "e" are serially correlated (autocorrelated)
+## 2. Violating Assumption 2: Perfect Multicollinearity
 
-* Set the seed and generate the true model
+When X variables are perfectly correlated or constant, the model becomes unidentifiable.
 
-```{r}
+### Data Generation with Perfect Correlation
+
+```{r multicollinearity_data}
+# Set seed for reproducibility
 set.seed(826)
-# Covariance matrix of x1, x2
-Sig <- matrix(c(4,1,1,2),2,2)
-Sig       
-# Mean of x1, x2
-moo <- c(10,3)
-# generate data
-Xe <- mvrnorm(n=1000,mu=moo,Sigma=Sig)
 
-# generate independent residuals
-eps = rnorm(n=1000,mean=0,sd=sqrt(1))
+# Create covariance matrix for x1 and e
+covariance_matrix <- matrix(c(4,0,0,1), 2, 2)
+covariance_matrix
+# Notice e does not covary with x1 (assumption 5)
 
-# generate serially correlated residuals
-eps2 <- arima.sim(model=list(ar=c(0.8)),n=1000,sd=1)
+# Define mean vector
+mean_vector <- c(10, 0)
 
-Xe1 = as.data.frame(cbind(Xe,eps))
-colnames(Xe1)<-c("x1","x2","e1")
-Xe2 = as.data.frame(cbind(Xe,eps2))
-colnames(Xe2)<-c("x1","x2","e2")
+# Generate data
+simulated_data <- mvrnorm(n=1000, mu=mean_vector, Sigma=covariance_matrix)
+
+# Create x2 as a perfect multiple of x1 (violates assumption 2)
+x2_values <- 7 * simulated_data[,1]
+simulated_data <- as.data.frame(cbind(simulated_data[,1], x2_values, simulated_data[,2]))
+
+# Assign column names
+colnames(simulated_data) <- c("x1", "x2", "e")
+head(simulated_data)
 ```
 
-* Investigate sample correlations and covariances 
-  - notice difference from "truth"
+### Exploratory Data Analysis
 
-```{r}
-scatterplotMatrix(Xe1)
-scatterplotMatrix(Xe2)
+```{r multicollinearity_exploration}
+# Calculate and display correlation and covariance matrices
+cov(simulated_data)
+cor(simulated_data)
+
+# Create scatterplot matrix
+scatterplotMatrix(simulated_data)
 ```
 
-* Generate the true $y$ (outcome)
+### Generate Outcome Variable
 
-```{r}
-y1 <- 10 - 6*Xe1$x1 + 5*Xe1$x2 + Xe1$e1
-y2 <- 10 - 6*Xe2$x1 + 5*Xe2$x2 + Xe2$e2
+```{r multicollinearity_outcome}
+# Generate linear outcome
+outcome_y <- 10 - 6*simulated_data$x1 + 5*simulated_data$x2 + simulated_data$e
+# Note: y is linear in parameters (satisfies assumption 1)
+
+# Plot relationships
+par(mfrow=c(1,2))
+plot(simulated_data$x1, outcome_y, main="y vs x1", xlab="x1", ylab="y")
+plot(simulated_data$x2, outcome_y, main="y vs x2", xlab="x2", ylab="y")
+par(mfrow=c(1,1))
 ```
 
-* Note that there are not necessarily obvious differences in the plot
+### Model Fitting with Perfect Multicollinearity
 
-```{r}
-plot(Xe1$x1,y1)
-plot(Xe2$x1,y2) 
+```{r multicollinearity_model}
+# Run linear regression (perfect multicollinearity issue)
+model_multicollinear <- lm(outcome_y ~ x1 + x2, data=simulated_data)
+summary(model_multicollinear)
+# Note: Intercept is 10 and coefficient is 29 = -6 + 5*7
+# Some stats packages may not produce output due to perfect collinearity
+
+# Intercept-only model (works because intercept can be constant)
+mean(outcome_y)
+summary(lm(outcome_y ~ 1))
 ```
 
-* Run the linear regression 
+### Data Generation with Constant Variable
 
-  - notice the difference in residual standard error, coefficient std. error, Rsquared. 
-  
-```{r}
-summary(lm(y1~x1+x2,data=Xe1)) 
-summary(lm(y2~x1+x2,data=Xe2))
+```{r constant_variable}
+# Set seed for reproducibility
+set.seed(826)
+
+# Covariance matrix with x2 having zero variance (constant)
+covariance_matrix <- matrix(c(4,0,0,0,0,0,0,0,1), 3, 3)
+covariance_matrix
+# Notice e does not covary with x1 or x2 (assumption 5)
+# But x2 has no variance (violates assumption 2)
+
+# Define mean vector
+mean_vector <- c(10, 3, 0)
+
+# Generate data
+simulated_data <- mvrnorm(n=1000, mu=mean_vector, Sigma=covariance_matrix)
+
+# Assign column names
+colnames(simulated_data) <- c("x1", "x2", "e")
+simulated_data <- as.data.frame(simulated_data)
+head(simulated_data)
+
+# Exploratory analysis
+cov(simulated_data)
+cor(simulated_data)
+scatterplotMatrix(simulated_data)
+
+# Generate outcome variable
+outcome_y <- 10 - 6*simulated_data$x1 + 5*simulated_data$x2 + simulated_data$e
+par(mfrow=c(1,2))
+plot(simulated_data$x1, outcome_y, main="y vs x1", xlab="x1", ylab="y")
+plot(simulated_data$x2, outcome_y, main="y vs x2", xlab="x2", ylab="y")
+par(mfrow=c(1,1))
+
+# Run regression
+model_constant <- lm(outcome_y ~ x1 + x2, data=simulated_data)
+summary(model_constant)
+# Note: Intercept is 25 = 10 + 5*3 and coefficient is -6
 ```
 
 ***
 
-### Violate Assumption 5: Residuals "e" are correlated with X variables
+## 3. Violating Assumption 3: Heteroskedasticity
 
-* Some $X$ variables are **endogenous**
+When residual variance is not constant, OLS estimates remain unbiased but are inefficient.
 
-* Many flavors of this
+### Data Generation
 
-#### 5a. Residuals (unobservable) covary with X's (observable)
-
-```{r}
+```{r heteroskedasticity_data}
+# Set seed for reproducibility
 set.seed(826)
-# Covariance matrix of x1, x2, and e 
+
+# Covariance matrix for x1 and x2
+covariance_matrix <- matrix(c(4,1,1,2), 2, 2)
+covariance_matrix
+
+# Define mean vector
+mean_vector <- c(10, 3)
+
+# Generate data for predictors
+predictors <- mvrnorm(n=1000, mu=mean_vector, Sigma=covariance_matrix)
+
+# Generate homoskedastic residuals (constant variance)
+homoskedastic_errors <- rnorm(n=1000, mean=0, sd=1)
+
+# Generate heteroskedastic residuals (variance depends on x1 and x2)
+variance_function <- (homoskedastic_errors^2) * (predictors[,1]^2 + predictors[,2]^2)
+heteroskedastic_errors <- rnorm(n=1000, mean=0, sd=sqrt(variance_function))
+
+# Create data frames
+homoskedastic_data <- as.data.frame(cbind(predictors, homoskedastic_errors))
+colnames(homoskedastic_data) <- c("x1", "x2", "e1")
+
+heteroskedastic_data <- as.data.frame(cbind(predictors, heteroskedastic_errors))
+colnames(heteroskedastic_data) <- c("x1", "x2", "e2")
+```
+
+### Exploratory Data Analysis
+
+```{r heteroskedasticity_exploration}
+# Create scatterplot matrices to visualize relationships
+scatterplotMatrix(homoskedastic_data)
+scatterplotMatrix(heteroskedastic_data)
+```
+
+### Generate Outcome Variables
+
+```{r heteroskedasticity_outcome}
+# Generate outcome variables
+outcome_y1 <- 10 - 6*homoskedastic_data$x1 + 5*homoskedastic_data$x2 + homoskedastic_data$e1
+outcome_y2 <- 10 - 6*heteroskedastic_data$x1 + 5*heteroskedastic_data$x2 + heteroskedastic_data$e2
+
+# Plot relationships
+par(mfrow=c(1,2))
+plot(homoskedastic_data$x1, outcome_y1, main="y1 (Homoskedastic) vs x1", 
+     xlab="x1", ylab="y1")
+plot(heteroskedastic_data$x1, outcome_y2, main="y2 (Heteroskedastic) vs x1", 
+     xlab="x1", ylab="y2")
+par(mfrow=c(1,1))
+```
+
+### Model Fitting with Heteroskedasticity
+
+```{r heteroskedasticity_models}
+# Run linear regression on homoskedastic data
+model_homoskedastic <- lm(outcome_y1 ~ x1 + x2, data=homoskedastic_data)
+summary(model_homoskedastic)
+
+# Run linear regression on heteroskedastic data
+model_heteroskedastic <- lm(outcome_y2 ~ x1 + x2, data=heteroskedastic_data)
+summary(model_heteroskedastic)
+# Note the differences in standard errors and R-squared
+```
+
+***
+
+## 4. Violating Assumption 4: Serial Correlation
+
+When residuals are correlated over time, OLS estimates remain unbiased but are inefficient.
+
+### Data Generation
+
+```{r serial_correlation_data}
+# Set seed for reproducibility
+set.seed(826)
+
+# Covariance matrix for x1 and x2
+covariance_matrix <- matrix(c(4,1,1,2), 2, 2)
+covariance_matrix
+
+# Define mean vector
+mean_vector <- c(10, 3)
+
+# Generate data for predictors
+predictors <- mvrnorm(n=1000, mu=mean_vector, Sigma=covariance_matrix)
+
+# Generate independent residuals
+independent_errors <- rnorm(n=1000, mean=0, sd=1)
+
+# Generate serially correlated residuals (AR(1) process)
+correlated_errors <- arima.sim(model=list(ar=c(0.8)), n=1000, sd=1)
+
+# Create data frames
+independent_data <- as.data.frame(cbind(predictors, independent_errors))
+colnames(independent_data) <- c("x1", "x2", "e1")
+
+correlated_data <- as.data.frame(cbind(predictors, correlated_errors))
+colnames(correlated_data) <- c("x1", "x2", "e2")
+```
+
+### Exploratory Data Analysis
+
+```{r serial_correlation_exploration}
+# Create scatterplot matrices
+scatterplotMatrix(independent_data)
+scatterplotMatrix(correlated_data)
+```
+
+### Generate Outcome Variables
+
+```{r serial_correlation_outcome}
+# Generate outcome variables
+outcome_y1 <- 10 - 6*independent_data$x1 + 5*independent_data$x2 + independent_data$e1
+outcome_y2 <- 10 - 6*correlated_data$x1 + 5*correlated_data$x2 + correlated_data$e2
+
+# Plot relationships
+par(mfrow=c(1,2))
+plot(independent_data$x1, outcome_y1, main="y1 (Independent Errors) vs x1", 
+     xlab="x1", ylab="y1")
+plot(correlated_data$x1, outcome_y2, main="y2 (Correlated Errors) vs x1", 
+     xlab="x1", ylab="y2")
+par(mfrow=c(1,1))
+```
+
+### Model Fitting with Serial Correlation
+
+```{r serial_correlation_models}
+# Run linear regression on data with independent errors
+model_independent <- lm(outcome_y1 ~ x1 + x2, data=independent_data)
+summary(model_independent)
+
+# Run linear regression on data with serially correlated errors
+model_correlated <- lm(outcome_y2 ~ x1 + x2, data=correlated_data)
+summary(model_correlated)
+# Note the differences in standard errors and R-squared
+```
+
+***
+
+## 5. Violating Assumption 5: Endogeneity
+
+When X variables are correlated with the error term, OLS estimates are biased.
+
+### 5.1 Direct Correlation Between X and Error Term
+
+```{r endogeneity_direct}
+# Set seed for reproducibility
+set.seed(826)
+
+# Create a random positive definite covariance matrix
 n <- 3
-A <- matrix(runif(n^2)*2-1, ncol=n) 
-Sig <- t(A) %*% A
-Sig       # Notice e covaries with x1 and x2
-# also x1 and x2 can covary, but not perfectly (assumption 2)
-# Mean of x1, x2, and e
-moo <- c(10,3,0)
-# generate data
-Xe1 <- mvrnorm(n=1000,mu=moo,Sigma=Sig)
+random_matrix <- matrix(runif(n^2)*2-1, ncol=n) 
+covariance_matrix <- t(random_matrix) %*% random_matrix
+covariance_matrix
+# Note: Error term (e1) covaries with x1 and x2
 
-# give the variables names
-colnames(Xe1)<-c("x1","x2","e1")
-# store as a data frame
-Xe1 <- as.data.frame(Xe1)
-head(Xe1)
+# Define mean vector
+mean_vector <- c(10, 3, 0)
+
+# Generate data
+endogenous_data <- mvrnorm(n=1000, mu=mean_vector, Sigma=covariance_matrix)
+
+# Assign column names
+colnames(endogenous_data) <- c("x1", "x2", "e1")
+endogenous_data <- as.data.frame(endogenous_data)
+head(endogenous_data)
 ```
 
-* Investigate patterns in the data
+### Exploratory Data Analysis
 
-```{r}
-# plot empirical distribution of each: 
-hist(Xe1$x1, breaks = 100, cex.main = 0.9)
-hist(Xe1$x2, breaks = 100, cex.main = 0.9)
-hist(Xe1$e1, breaks = 100, cex.main = 0.9)
-# Sample correlations and covariances (notice difference from "truth")
-cov(Xe1)
-cor(Xe1)
-scatterplotMatrix(Xe1)
+```{r endogeneity_exploration}
+# Plot histograms
+hist(endogenous_data$x1, breaks = 100, main="Distribution of x1", 
+     xlab="x1", ylab="Frequency")
+hist(endogenous_data$x2, breaks = 100, main="Distribution of x2",
+     xlab="x2", ylab="Frequency")
+hist(endogenous_data$e1, breaks = 100, main="Distribution of Error Term",
+     xlab="e1", ylab="Frequency")
+
+# Calculate and display correlation and covariance matrices
+cov(endogenous_data)
+cor(endogenous_data)
+
+# Create scatterplot matrix
+scatterplotMatrix(endogenous_data)
 ```
 
-* Generate the true $y$ (outcome)
+### Generate Outcome Variable
 
-```{r}
-y1 <- 10 - 6*Xe1$x1 + 5*Xe1$x2 + Xe1$e1
+```{r endogeneity_outcome}
+# Generate outcome variable
+outcome_y1 <- 10 - 6*endogenous_data$x1 + 5*endogenous_data$x2 + endogenous_data$e1
+
+# Plot relationships
+par(mfrow=c(1,2))
+plot(endogenous_data$x1, outcome_y1, main="y vs x1", xlab="x1", ylab="y")
+plot(endogenous_data$x2, outcome_y1, main="y vs x2", xlab="x2", ylab="y")
+par(mfrow=c(1,1))
 ```
 
-* No obvious problems in the plot of $X$'s against $y$
+### Model Fitting with Endogeneity
 
-```{r}
-plot(Xe1$x1,y1)
-plot(Xe1$x2,y1) 
+```{r endogeneity_model}
+# Run linear regression with endogenous variables
+model_endogenous <- lm(outcome_y1 ~ x1 + x2, data=endogenous_data)
+summary(model_endogenous)
+# Note: Coefficients are biased (different from true values -6 and 5)
 ```
 
-* Run the linear regression 
+### 5.2 Omitted Variable Bias
 
-  - notice the difference in sample coefficients from true values. 
-  
-```{r}
-summary(lm(y1~x1+x2,data=Xe1)) 
-```
-
-
-#### 5b. An observable variable (that is correlated with included variables) was omitted 
-
-```{r}
+```{r omitted_variable}
+# Set seed for reproducibility
 set.seed(826)
-# Covariance matrix of x1, x2, and e 
-Sig <- matrix(c(4,1,0,1,2,0,0,0,1),3,3)
-Sig       # Notice e does not covary with x1 or x2 (assumption 5) 
-# also x1 and x2 can covary, but not perfectly (assumption 2)
-# Mean of x1, x2, and e
-moo <- c(10,3,0)
 
-# generate data
-Xe <- mvrnorm(n=1000,mu=moo,Sigma=Sig)
-# give the variables names
-colnames(Xe)<-c("x1","x2","e")
-# store as a data frame
-Xe <- as.data.frame(Xe)
+# Covariance matrix
+covariance_matrix <- matrix(c(4,1,0,1,2,0,0,0,1), 3, 3)
+covariance_matrix
+# Note: e does not covary with x1 or x2 (satisfies assumption 5)
+
+# Define mean vector
+mean_vector <- c(10, 3, 0)
+
+# Generate data
+complete_data <- mvrnorm(n=1000, mu=mean_vector, Sigma=covariance_matrix)
+
+# Assign column names
+colnames(complete_data) <- c("x1", "x2", "e")
+complete_data <- as.data.frame(complete_data)
+
+# Generate outcome variable
+outcome_y2 <- 10 - 6*complete_data$x1 + 5*complete_data$x2 + complete_data$e
+
+# Run correct model with both variables
+model_complete <- lm(outcome_y2 ~ x1 + x2, data=complete_data)
+summary(model_complete)
+
+# Run model with omitted variable x1
+model_omit_x1 <- lm(outcome_y2 ~ x2, data=complete_data)
+summary(model_omit_x1)
+
+# Run model with omitted variable x2
+model_omit_x2 <- lm(outcome_y2 ~ x1, data=complete_data)
+summary(model_omit_x2)
+# Note: Coefficients are biased due to omitted variable bias
 ```
 
-* Generate the true $y$ (outcome)
+### 5.3 Autocorrelated Dependent Variable
 
-```{r}
-y2 <- 10 - 6*Xe$x1 + 5*Xe$x2 + Xe$e 
-```
-
-* Run the linear regression with an omitted variable
-
-```{r}
-summary(lm(y2~x1+x2,data=Xe))
-summary(lm(y2~x1,data=Xe))
-summary(lm(y2~x2,data=Xe))
-```
-
-
-#### 5c. $y$ is autocorrelated, may or may not have serial correlation/autocorrelation in the residual.  
-
-```{r}
+```{r autocorrelated_y}
+# Set seed for reproducibility
 set.seed(826)
-# generate an autocorrelated residual
-eps <- arima.sim(model=list(ar=c(0.8)),n=999,sd=1)
 
-# generate an autocorrelated outcome that has "eps" as its residual
-y1 <- list()
-y10 <- rnorm(n=1,mean=10,sd=1)
-y1[[1]] <- y10
+# Generate an autocorrelated error term (AR(1) process)
+ar_errors <- arima.sim(model=list(ar=c(0.8)), n=999, sd=1)
+
+# Generate an autocorrelated outcome variable
+ar_outcome <- numeric(1000)
+ar_outcome[1] <- rnorm(n=1, mean=10, sd=1)  # Initial value
+
 for(i in 2:1000) {
-  y1[[i]] <- 10 + 0.4*y1[[i-1]] + eps[i]
+  ar_outcome[i] <- 10 + 0.4*ar_outcome[i-1] + ar_errors[i-1]
 }
-y1 <- unlist(y1)
 
-arima(y1,order=c(1,0,0))
+# Estimate AR(1) model
+arima_model <- arima(ar_outcome, order=c(1,0,0))
+arima_model
 ```
