@@ -1,24 +1,32 @@
-# ======================================================================
-# ARIMA MODELING AND LAG SELECTION EXAMPLES
-# ======================================================================
+# Comprehensive ARIMA Modeling and Lag Selection Tutorial --------------------
+#
+# LEARNING OBJECTIVES:
+# 1. Understand the process of ARIMA model identification and estimation
+# 2. Learn multiple approaches to lag selection in time series models
+# 3. Master residual diagnostics for assessing model adequacy
+# 4. Generate and evaluate forecasts using holdout samples
+# 5. Interpret cyclical patterns through characteristic polynomial roots
+# 6. Compare model performance using information criteria
+#
+# METHODOLOGICAL APPROACH:
+# This tutorial follows the Box-Jenkins methodology:
+# 1. Model Identification (ACF/PACF analysis, automatic selection)
+# 2. Model Estimation (parameter fitting)
+# 3. Model Diagnostic Checking (residual analysis)
+# 4. Forecasting (prediction and evaluation)
+#
+# DATA: We analyze two contrasting time series:
+# - Industrial drilling activity (highly cyclical economic series)
+# - Unemployment rates (macroeconomic indicator with persistence)
 
-# This program demonstrates:
-# 1. Fitting and evaluating various ARIMA models to time series data
-# 2. Lag selection techniques for ARMA models
-# 3. Residual diagnostics for model adequacy
-# 4. Forecasting methods and evaluation with holdout samples
-# 5. Analyzing cyclical components via roots of characteristic polynomials
-
-# --------------------- SETUP AND PACKAGE LOADING ----------------------
 # Load required packages
-library(forecast)    # For time series forecasting and model selection
-library(quantmod)    # For financial data retrieval
-library(caschrono)   # For additional time series functions
+library(forecast)    # Advanced time series forecasting and model selection
+library(quantmod)    # Financial and economic data retrieval from FRED/Yahoo
+library(caschrono)   # Additional time series analysis functions
 
-# ======================= CASE STUDY 1: DRILLING ACTIVITY ======================
+# Case Study 1: Drilling Activity ---------------------------------------------
 
-# --------------------- DATA ACQUISITION -------------------------------
-# Retrieve drilling activity data from FRED
+# Data Acquisition - Retrieve drilling activity data from FRED
 
 # Get oil and gas drilling production index
 getSymbols("IPN213111S", src="FRED")   # Industrial Production: Drilling Oil and Gas Wells
@@ -400,10 +408,9 @@ best_cycles <- analyze_cycles(model_best, max_coef=best_order[1])
 cat("Analyzing cycles in the AR(15) constrained model:\n")
 ar15_cycles <- analyze_cycles(model_ar15_constrained2, max_coef=15)
 
-# ======================= CASE STUDY 2: UNEMPLOYMENT RATES ======================
+# Case Study 2: Unemployment Rates --------------------------------------------
 
-# --------------------- DATA ACQUISITION -------------------------------
-# Retrieve unemployment rate data from FRED
+# Data Acquisition - Retrieve unemployment rate data from FRED
 
 # Get unemployment rate data
 getSymbols("UNRATE", src="FRED")

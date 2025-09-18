@@ -48,7 +48,9 @@ def fetch_stock_data(tickers, start_date='2000-01-03', end_date=None):
     
     data = {}
     for ticker in tickers:
-        data[ticker] = yf.download(ticker, start=start_date, end=end_date)
+        df = yf.download(ticker, start=start_date, end=end_date, group_by='ticker')
+        df = df[ticker]
+        data[ticker] = df
     
     return data
 
@@ -69,10 +71,10 @@ def calculate_returns(price_data):
     returns = {}
     for ticker, df in price_data.items():
         # Daily log returns
-        daily_log_returns = 100 * np.log(df['Adj Close'] / df['Adj Close'].shift(1)).dropna()
+        daily_log_returns = 100 * np.log(df['Close'] / df['Close'].shift(1)).dropna()
         
         # Monthly log returns
-        monthly_prices = df['Adj Close'].resample('M').last()
+        monthly_prices = df['Close'].resample('M').last()
         monthly_log_returns = 100 * np.log(monthly_prices / monthly_prices.shift(1)).dropna()
         
         returns[ticker] = {
@@ -98,7 +100,7 @@ def plot_price_series(price_data):
     plt.figure(figsize=(14, 7))
     
     for ticker, df in price_data.items():
-        plt.plot(df.index, df['Adj Close'], label=ticker)
+        plt.plot(df.index, df['Close'], label=ticker)
     
     plt.title('Price Series', fontsize=16)
     plt.xlabel('Date', fontsize=12)
@@ -187,11 +189,15 @@ def plot_heatmap_with_histograms(returns, ticker1, ticker2, freq='daily_log', bi
     ax_histy = plt.subplot(gs[1, 1], sharey=ax_heatmap)
     plt.setp(ax_histy.get_yticklabels(), visible=False)
     
+    # Create area for colorbar (in the top right corner)
+    ax_colorbar = plt.subplot(gs[0, 1])
+    ax_colorbar.axis('off')  # Hide the axis
+    
     # Create 2D histogram / heatmap
     h, xedges, yedges, im = ax_heatmap.hist2d(x, y, bins=bins, cmap=cmap)
     
-    # Add a colorbar
-    cbar = plt.colorbar(im, ax=ax_heatmap)
+    # Add a colorbar in the top right position
+    cbar = plt.colorbar(im, cax=ax_colorbar, orientation='vertical')
     cbar.set_label('Frequency')
     
     # Create top histogram
@@ -267,6 +273,10 @@ def plot_kde_with_histograms(returns, ticker1, ticker2, freq='daily_log', bins=5
     ax_histy = plt.subplot(gs[1, 1], sharey=ax_kde)
     plt.setp(ax_histy.get_yticklabels(), visible=False)
     
+    # Create area for colorbar (in the top right corner)
+    ax_colorbar = plt.subplot(gs[0, 1])
+    ax_colorbar.axis('off')  # Hide the axis
+    
     # Calculate histogram counts for proportional plotting
     hist_x, bins_x = np.histogram(x_np, bins=bins)
     hist_y, bins_y = np.histogram(y_np, bins=bins)
@@ -297,8 +307,8 @@ def plot_kde_with_histograms(returns, ticker1, ticker2, freq='daily_log', bins=5
     cmap = plt.get_cmap(cmap)
     im = ax_kde.imshow(np.rot90(f), cmap=cmap, extent=[x_min, x_max, y_min, y_max], aspect='auto')
     
-    # Add a colorbar
-    cbar = plt.colorbar(im, ax=ax_kde)
+    # Add a colorbar in the top right position
+    cbar = plt.colorbar(im, cax=ax_colorbar, orientation='vertical')
     cbar.set_label('Density')
     
     # Plot histograms

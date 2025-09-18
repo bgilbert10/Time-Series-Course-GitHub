@@ -100,10 +100,20 @@ par(par_default)
 # ---------------------- ALTERNATIVE APPROACH -------------------------
 # Create heat map using kernel density estimation
 
+# Convert to data frame and keep column names
+df <- data.frame(date = index(returns_df), coredata(returns_df))
+
+# Add binned variables
+# Assuming your xts object has columns named "spy_returns" and "xle_returns"
+df$spy_bin <- cut(df$spy_returns, breaks=c(-15, -10, -5, 0, 5, 10, 15))
+df$xle_bin <- cut(df$xle_returns, breaks=c(-20, -10, 0, 10, 20))
+
+# Add a dummy count column
+df$count <- 1
+
 # Define extent of X and Y graph axes
-return_table = dcast(returns_df, 
-                    cut(spy_returns, breaks=c(-15, -10, -5, 0, 5, 10, 15)) ~ 
-                    cut(xle_returns, breaks=c(-20, -10, 0, 10, 20)))
+# Reshape with dcast to create a count table
+return_table <- dcast(df, spy_bin ~ xle_bin, value.var = "count", fun.aggregate = length)
 
 # Choose color palette from RColorBrewer
 color_function <- colorRampPalette(rev(brewer.pal(11, 'Spectral')))

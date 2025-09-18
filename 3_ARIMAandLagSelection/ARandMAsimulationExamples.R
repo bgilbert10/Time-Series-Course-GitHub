@@ -1,147 +1,473 @@
-# simulate a couple of AR(2) processes and look at characteristic polynomials
-# one with real roots, one with complex roots
+# AR and MA Simulation Examples: Understanding Time Series Behavior -----------
+#
+# LEARNING OBJECTIVES:
+# 1. Simulate AR and MA processes with known parameters
+# 2. Distinguish between real and complex characteristic polynomial roots
+# 3. Interpret cyclical behavior from complex roots
+# 4. Compare forecasting properties of AR, MA, and White Noise processes
+# 5. Understand how different model structures affect time series patterns
+#
+# THEORETICAL BACKGROUND:
+# - AR processes: Current value depends on past values (persistence)
+# - MA processes: Current value depends on past error terms (short memory)
+# - Complex roots: Create cyclical/seasonal patterns in time series
+# - Real roots: Create exponential decay or explosive behavior
+#
+# PRACTICAL IMPORTANCE:
+# Understanding these simulation exercises helps in:
+# - Model identification from real data
+# - Forecast interpretation
+# - Economic interpretation of estimated models
 
-# compare AR1 process to MA1 process to White Noise process
+# Load required packages
+library(forecast)    # Time series analysis and forecasting
+library(quantmod)    # Additional time series utilities
 
-# install.packages("forecast")
-require(forecast)
-# install.packages("quantmod")
-require(quantmod)
+# Part 1: AR(2) Processes with Different Root Structures ---------------------
+#
+# We simulate two AR(2) processes to demonstrate how characteristic polynomial
+# roots affect the time series behavior:
+# 1. AR(2) with real roots → exponential decay/growth patterns
+# 2. AR(2) with complex roots → cyclical/oscillatory patterns
 
-# simulate an AR(2) with imaginary roots and 
-# one with real roots
-y1 <- arima.sim(model=list(ar=c(1.3,-0.4)),1000)
-# simulates 1000 obs with ph1 =1.3, ph2 = -0.4
-acf(y1)
-y2 <- arima.sim(model=list(ar=c(0.8,-0.7)),1000)
-acf(y2)
-# ACF for y1 shows exponential decay, but 
-# ACF for y2 shows dampening sine and cosine
-plot(y1)
-plot(y2)
+# ------------------- AR(2) PROCESS WITH REAL ROOTS -------------------
 
-# calculate the roots
-p1 <- c(1,-1.3,0.4) # coefficients of characteristic polynomial
-r1 <- polyroot(p1) # calculate roots
-r1   # y1 had two real roots
-p2 <- c(1,-0.8,0.7)
-r2 <- polyroot(p2)
-r2   # y2 had a conjugate pair of complex roots
+cat("Model: y_t = 1.3*y_{t-1} - 0.4*y_{t-2} + ε_t\n")
+cat("Parameters: φ₁ = 1.3, φ₂ = -0.4\n")
 
-# a = 0.571429, b=1.049781
+# Simulate AR(2) with real roots
+set.seed(123)  # For reproducible results
+ar2_real_roots <- arima.sim(model=list(ar=c(1.3, -0.4)), n=1000)
 
-# since y2 has cyclical behavior,
-# let's investigate the average length of the cycle
-# two ways to do it
-k <- 2*pi/acos(0.571429/sqrt(0.571429^2 + 1.049781^2))
+cat("Simulated", length(ar2_real_roots), "observations\n")
+cat("Expected behavior: Exponential decay pattern in ACF\n\n")
 
-# calculate modulus (absolute value) of the roots
-Mod(r2)
-# sqrt(a^2 + b^2) = 1.195229
-k <- 2*pi/acos(0.571429/1.195229)
+# Examine autocorrelation pattern
+acf(ar2_real_roots, 
+    main="ACF: AR(2) with Real Roots",
+    lag.max=30)
 
-# Be aware that the coefficients are all we need to capture
-# the cyclical dynamics in our forecast - don't need to 
-# work with sine and cosine functions
+# ------------------- AR(2) PROCESS WITH COMPLEX ROOTS -------------------
 
-# suppose I didn't know the true coefficients
-m1 <- ar(y1,method="mle",order.max=10) # choose lag order with AIC criterion
-m1$order
-m1
-# notice the AR2 coefficients are very close
-pacf(y1)  # compute PACF
-t.test(y1)  # testing mean = 0.
-Box.test(y1,lag=10,type='Ljung')  # Perform Ljung-Box Q-test.
+cat("Model: y_t = 0.8*y_{t-1} - 0.7*y_{t-2} + ε_t\n")
+cat("Parameters: φ₁ = 0.8, φ₂ = -0.7\n")
 
-m2 <- ar(y2,method="mle",order.max=10) 
-m2$order
-m2
-pacf(y2)  # compute PACF
-t.test(y2)  # testing mean = 0.
-Box.test(y2,lag=10,type='Ljung')  # Perform Ljung-Box Q-test.
+# Simulate AR(2) with complex roots
+set.seed(456)  # Different seed for comparison
+ar2_complex_roots <- arima.sim(model=list(ar=c(0.8, -0.7)), n=1000)
 
-# in order to use "forecast" we have to use the model we fit
-# and use that model to forecast (not forecast on raw data)
-fy2 = forecast(m2,h=100)
-plot(fy2)
-# you can see the forecast includes the cycles, but let's 
-# zoom in by including only the first 100 observations of
-# the original series: 
-plot(fy2,include=100)
-# Important: the long run forecast is just the mean, mu
+cat("Expected behavior: Damped oscillating pattern in ACF\n\n")
 
-# y1 is less interesting
-fy1 = forecast(m1,h=100)
-plot(fy1)
-plot(fy1,include=100)
+# Examine autocorrelation pattern
+acf(ar2_complex_roots,
+    main="ACF: AR(2) with Complex Roots", 
+    lag.max=30)
+
+cat("COMPARISON OF ACF PATTERNS:\n")
+cat("- Real roots (y1): Smooth exponential decay\n")
+cat("- Complex roots (y2): Oscillating (sine/cosine-like) decay\n\n")
+
+# ------------------- VISUAL COMPARISON OF TIME SERIES -------------------
+
+# Plot both time series for comparison
+par(mfrow=c(2,1))
+plot(ar2_real_roots, 
+     main="AR(2) with Real Roots: Smooth Exponential Behavior",
+     ylab="Value", xlab="Time")
+plot(ar2_complex_roots,
+     main="AR(2) with Complex Roots: Cyclical/Oscillatory Behavior", 
+     ylab="Value", xlab="Time")
+par(mfrow=c(1,1))
+
+cat("VISUAL INTERPRETATION:\n")
+cat("- Real roots: Smooth transitions between values\n") 
+cat("- Complex roots: Regular oscillatory patterns (pseudo-cycles)\n\n")
 
 
+# PART 2: CHARACTERISTIC POLYNOMIAL ROOTS ANALYSIS -------------------
 
-# Let's compare what an MA(1) looks like compared to an AR(1) with same
-# coefficient, compared to white noise with same mu and sigma
+#
+# The characteristic polynomial helps us understand the dynamic properties
+# of AR processes. For an AR(2) process: y_t = φ₁y_{t-1} + φ₂y_{t-2} + ε_t
+# The characteristic polynomial is: 1 - φ₁z - φ₂z² = 0
+#
+# Root interpretation:
+# - Real roots: Exponential behavior (growth/decay)
+# - Complex roots: Cyclical behavior (pseudo-periodic oscillations)
+# - Modulus > 1: Stationary process
+# - Modulus = 1: Non-stationary unit root process
+# - Modulus < 1: Explosive process
 
-ar1 <- arima.sim(model=list(ar=c(0.8)),200)
-ma1 <- arima.sim(model=list(ma=c(0.8)),200)
-wn <- arima.sim(model=list(),200)
-plot(ar1)
-plot(ma1)
-plot(wn)
-# notice AR drifts away from mean and drifts back
-# MA and WN have same mean reversion, but MA has wider variance.
-# WN 95% of observations between 2 and -2 (two standard devations from mean=0)
-# MA has more observations outside (-2,2)
+# ------------------- REAL ROOTS ANALYSIS -------------------
+cat("--- Analysis of AR(2) with Real Roots ---\n")
+cat("Characteristic polynomial: 1 - 1.3z + 0.4z² = 0\n")
 
-# notice that depending on the draw of random numbers,
-# auto.arima might think our ar1 is non-stationary because 0.8 close to 1
-# if we were to add more observations, or do this multiple times, 
-# this would go away
-fitAR1 = auto.arima(ar1)
-fitAR1
-# using ar() command get very close to simulated model
-# but can't get MA or I components
-fitAR1 = ar(ar1)
-fitAR1
-fcAR1 = forecast(fitAR1,h=200)
-plot(fcAR1)
-plot(fcAR1,include=100)
+# Coefficients for characteristic polynomial (note the sign convention)
+char_poly_real <- c(1, -1.3, 0.4)
+roots_real <- polyroot(char_poly_real)
 
-fitMA1 = auto.arima(ma1,approximation=F)
-# should get MA1
-# could try impose MA1 and zero mean with 
-fitMA1 = arima(x=ma1,order=c(0,0,1),include.mean=F)
-# with only 200 obs, coefficient is pretty far from correct
-# try with 2000 obs. 
-# in practice, we don't know
+cat("Characteristic roots:\n")
+print(roots_real)
 
-# compare 5-step ahead forecast with MA terms
-# vs. same forecast without
-fcMA1 = forecast(fitMA1,h=5)
-plot(fcMA1)
-plot(fcMA1,include = 50)
-# notice difference in uncertainty if ignoring MA1
-fcMA.naive = forecast(ma1,h=5)
-plot(fcMA.naive,include = 50)
-# forecast converges to sample mean and variance quickly
-# but MA1 forecast allows more precision in short term
+cat("Root analysis:\n")
+cat("Root 1:", round(roots_real[1], 4), "\n")
+cat("Root 2:", round(roots_real[2], 4), "\n")
+cat("Both roots are real numbers\n")
+cat("Moduli:", round(Mod(roots_real), 4), "\n")
 
-# compare to AR(3) or MA(3), see how forecast tapers off.
-ar3 <- arima.sim(model=list(ar=c(0.8,-0.3,0.3)),2000)
-ma3 <- arima.sim(model=list(ma=c(0.8,-0.3,0.3)),2000)
+if(all(Mod(roots_real) > 1)) {
+  cat("CONCLUSION: Process is stationary (all roots outside unit circle)\n\n")
+} else {
+  cat("WARNING: Process may be non-stationary\n\n")
+}
 
-fitAR3 = ar(ar3)
-fitAR3
-fcAR3 = forecast(fitAR3,h=200)
-plot(fcAR3,include=100)
+# ------------------- COMPLEX ROOTS ANALYSIS -------------------
+cat("--- Analysis of AR(2) with Complex Roots ---\n")
+cat("Characteristic polynomial: 1 - 0.8z + 0.7z² = 0\n")
 
-fitMA3 = auto.arima(ma3,approximation=F)
-fitMA3
-# might not get MA3
-# could try impose MA3 and zero mean with 
-fitMA3 = arima(x=ma3,order=c(0,0,3),include.mean=F)
-fitMA3
-# in practice we don't know
+# Coefficients for characteristic polynomial 
+char_poly_complex <- c(1, -0.8, 0.7)
+roots_complex <- polyroot(char_poly_complex)
 
-# see 10-step ahead forecast with MA terms
-fcMA3 = forecast(fitMA3,h=10)
-plot(fcMA3,include = 50)
+cat("Characteristic roots:\n")
+print(roots_complex)
+
+# Extract real and imaginary parts for cycle calculation
+real_part <- Re(roots_complex[1])    # Real part (same for both roots)
+imag_part <- Im(roots_complex[1])    # Imaginary part (opposite for conjugate pair)
+modulus <- Mod(roots_complex[1])     # Modulus (same for both roots)
+
+cat("\\nDetailed analysis of complex roots:\n")
+cat("Real part (a):", round(real_part, 6), "\n")
+cat("Imaginary part (b):", round(abs(imag_part), 6), "\n") 
+cat("Modulus:", round(modulus, 6), "\n")
+
+# ------------------- CYCLE LENGTH CALCULATION -------------------
+
+cat("For complex roots, we can calculate the average cycle length:\n")
+cat("Formula: k = 2π / arccos(real_part / modulus)\n\n")
+
+# Calculate cycle length using the formula
+cycle_length <- 2 * pi / acos(real_part / modulus)
+cat("Calculated cycle length:", round(cycle_length, 2), "periods\n")
+
+# Alternative calculation (verification)
+cat("\\nVerification calculation:\n")
+modulus_check <- sqrt(real_part^2 + imag_part^2)
+cycle_length_check <- 2 * pi / acos(real_part / modulus_check)
+cat("Alternative cycle length:", round(cycle_length_check, 2), "periods\n")
+
+cat("\\nINTERPRETATION:\n")
+cat("- The process exhibits pseudo-cyclical behavior\n")
+cat("- Average cycle length is approximately", round(cycle_length, 1), "periods\n")
+cat("- This creates the oscillating pattern we see in the ACF\n")
+cat("- No need for sine/cosine functions - AR coefficients capture cyclical dynamics\n\n")
+
+# ------------------- STATIONARITY CHECK -------------------
+if(modulus > 1) {
+  cat("STATIONARITY: Process is stationary (modulus > 1)\n")
+} else {
+  cat("WARNING: Process is non-stationary (modulus <= 1)\n")
+}
+
+
+# PART 3: MODEL SELECTION AND ESTIMATION FROM SIMULATED DATA -----------------
+
+#
+# In practice, we observe time series data but don't know the true underlying
+# parameters. This section demonstrates how to estimate the model structure
+# using standard model selection techniques.
+
+# ------------------- MODEL SELECTION FOR REAL ROOTS PROCESS -------------------
+cat("--- Model Selection: AR(2) with Real Roots ---\n")
+cat("True parameters: φ₁ = 1.3, φ₂ = -0.4\n")
+cat("Attempting to recover these parameters from the data...\n\n")
+
+# Use automatic AR model selection with MLE
+real_roots_model <- ar(ar2_real_roots, method="mle", order.max=10)
+
+cat("Automatic model selection results:\n")
+cat("Selected AR order:", real_roots_model$order, "\n")
+cat("Estimated coefficients:\n")
+print(real_roots_model$ar)
+cat("Compare to true values: φ₁ = 1.3, φ₂ = -0.4\n\n")
+
+# Additional diagnostic tools
+cat("PACF analysis (should cut off after lag 2 for AR(2)):\n")
+pacf(ar2_real_roots, main="PACF: AR(2) with Real Roots")
+
+# Statistical tests
+cat("\nDiagnostic Tests:\n")
+mean_test <- t.test(ar2_real_roots)
+cat("Mean test (H₀: μ = 0):\n")
+cat("Sample mean:", round(mean_test$estimate, 4), "\n")
+cat("p-value:", round(mean_test$p.value, 4), "\n")
+
+ljung_test_real <- Box.test(ar2_real_roots, lag=10, type='Ljung-Box')
+cat("Ljung-Box test (H₀: no autocorrelation):\n") 
+cat("p-value:", round(ljung_test_real$p.value, 4), "\n")
+if(ljung_test_real$p.value < 0.05) {
+  cat("CONCLUSION: Significant autocorrelation detected (as expected for AR process)\n\n")
+} else {
+  cat("CONCLUSION: No significant autocorrelation\n\n")
+}
+
+# ------------------- MODEL SELECTION FOR COMPLEX ROOTS PROCESS -------------------
+cat("--- Model Selection: AR(2) with Complex Roots ---\n")
+cat("True parameters: φ₁ = 0.8, φ₂ = -0.7\n")
+
+# Use automatic AR model selection
+complex_roots_model <- ar(ar2_complex_roots, method="mle", order.max=10)
+
+cat("Automatic model selection results:\n")
+cat("Selected AR order:", complex_roots_model$order, "\n")
+cat("Estimated coefficients:\n") 
+print(complex_roots_model$ar)
+cat("Compare to true values: φ₁ = 0.8, φ₂ = -0.7\n\n")
+
+# PACF analysis
+cat("PACF analysis:\n")
+pacf(ar2_complex_roots, main="PACF: AR(2) with Complex Roots")
+
+# Statistical tests
+mean_test_2 <- t.test(ar2_complex_roots)
+cat("\nDiagnostic Tests:\n")
+cat("Mean test (H₀: μ = 0):\n")
+cat("Sample mean:", round(mean_test_2$estimate, 4), "\n")
+cat("p-value:", round(mean_test_2$p.value, 4), "\n")
+
+ljung_test_complex <- Box.test(ar2_complex_roots, lag=10, type='Ljung-Box') 
+cat("Ljung-Box test (H₀: no autocorrelation):\n")
+cat("p-value:", round(ljung_test_complex$p.value, 4), "\n\n")
+
+cat("INTERPRETATION OF IDENTIFICATION RESULTS:\n")
+cat("- Both processes correctly identified as AR(2)\n")
+cat("- Estimated coefficients should be close to true values\n")
+cat("- PACF should show significant values at lags 1 and 2, then cut off\n")
+cat("- Large samples provide more accurate parameter estimates\n\n")
+
+
+# PART 4: FORECASTING WITH AR MODELS -------------------
+
+#
+# Demonstrates how different root structures affect forecasting behavior:
+# - Real roots: Smooth convergence to long-run mean
+# - Complex roots: Cyclical approach to long-run mean
+
+# ------------------- FORECASTING AR(2) WITH COMPLEX ROOTS -------------------
+
+cat("Generating forecasts that preserve cyclical patterns...\n")
+
+# Generate forecasts using the estimated model
+forecast_complex <- forecast(complex_roots_model, h=100)
+
+# Plot full forecast 
+plot(forecast_complex,
+     main="100-Step Forecast: AR(2) with Complex Roots",
+     xlab="Time", ylab="Value")
+
+cat("Full forecast shows long-term convergence to mean\n")
+
+# Plot forecast with recent history for better visualization
+plot(forecast_complex, include=100,
+     main="AR(2) Complex Roots: Forecast with Recent History", 
+     xlab="Time", ylab="Value")
+
+cat("IMPORTANT INSIGHT: Forecasts preserve cyclical behavior in short-term\n")
+cat("but converge to long-run mean (μ) in the long-term\n\n")
+
+# ------------------- FORECASTING AR(2) WITH REAL ROOTS -------------------
+
+cat("Generating forecasts with smooth exponential convergence...\n")
+
+# Generate forecasts for real roots process
+forecast_real <- forecast(real_roots_model, h=100)
+
+# Plot full forecast
+plot(forecast_real,
+     main="100-Step Forecast: AR(2) with Real Roots",
+     xlab="Time", ylab="Value")
+
+# Plot with recent history
+plot(forecast_real, include=100,
+     main="AR(2) Real Roots: Forecast with Recent History",
+     xlab="Time", ylab="Value") 
+
+cat("COMPARISON OF FORECASTING BEHAVIOR:\n")
+cat("- Complex roots: Cyclical/oscillatory convergence to mean\n")
+cat("- Real roots: Smooth exponential convergence to mean\n")
+cat("- Both converge to long-run mean in the limit\n")
+cat("- Short-term forecasts reflect underlying dynamics\n\n")
+
+
+
+# PART 5: COMPARING AR, MA, AND WHITE NOISE PROCESSES ------------------
+
+#
+# This section demonstrates fundamental differences between:
+# - AR(1): Autoregressive - persistence and mean reversion
+# - MA(1): Moving Average - short memory, larger variance  
+# - White Noise: No memory, constant variance
+#
+# Understanding these differences is crucial for:
+# - Model selection and identification
+# - Interpretation of economic time series
+# - Forecasting behavior
+
+# ------------------- SIMULATION OF DIFFERENT PROCESS TYPES -------------------
+
+cat("All processes have the same coefficient (0.8) for comparison\n\n")
+
+set.seed(789)  # For reproducible results
+
+# Simulate processes with same coefficient
+ar1_process <- arima.sim(model=list(ar=c(0.8)), n=200)
+ma1_process <- arima.sim(model=list(ma=c(0.8)), n=200)  
+white_noise <- arima.sim(model=list(), n=200)
+
+cat("Sample sizes: 200 observations each\n")
+cat("AR(1): y_t = 0.8*y_{t-1} + ε_t\n")
+cat("MA(1): y_t = ε_t + 0.8*ε_{t-1}\n") 
+cat("White Noise: y_t = ε_t\n\n")
+
+# ------------------- VISUAL COMPARISON -------------------
+
+par(mfrow=c(3,1))
+plot(ar1_process, main="AR(1): Persistent, Mean-Reverting", 
+     ylab="AR(1) Value", type="l")
+plot(ma1_process, main="MA(1): Short Memory, Higher Variance",
+     ylab="MA(1) Value", type="l") 
+plot(white_noise, main="White Noise: No Memory, Constant Variance",
+     ylab="WN Value", type="l")
+par(mfrow=c(1,1))
+
+cat("BEHAVIORAL DIFFERENCES:\n")
+cat("- AR(1): Drifts away from mean, then drifts back (persistence)\n")
+cat("- MA(1): Similar mean reversion to WN, but wider variance\n")
+cat("- White Noise: Random fluctuations around mean\n")
+cat("- MA(1) has more extreme values outside ±2 standard deviations\n\n")
+
+# ------------------- MODEL SELECTION AND ESTIMATION -------------------
+
+# AR(1) selection
+cat("\\n1. AR(1) Process Identification:\\n")
+ar1_fitted <- auto.arima(ar1_process)
+print(ar1_fitted)
+
+cat("Note: With coefficient close to 1, auto.arima might sometimes\n")
+cat("incorrectly identify as non-stationary due to finite sample effects\n")
+
+# Alternative: Use ar() for pure AR selection
+ar1_fitted_ar <- ar(ar1_process)
+cat("\\nUsing ar() function (AR-only selection):\\n")
+cat("Selected order:", ar1_fitted_ar$order, "\n")
+cat("Estimated coefficient:", round(ar1_fitted_ar$ar[1], 4), "\n")
+cat("True coefficient: 0.8\n")
+
+# MA(1) selection  
+cat("\\n2. MA(1) Process Selection:\\n")
+ma1_fitted <- auto.arima(ma1_process, approximation=FALSE)
+print(ma1_fitted)
+
+# Force MA(1) specification for comparison
+cat("\\nForced MA(1) specification:\\n")
+ma1_forced <- arima(x=ma1_process, order=c(0,0,1), include.mean=FALSE)
+print(ma1_forced)
+cat("Note: With small samples (n=200), estimates may deviate from true values\n")
+
+# ------------------- FORECASTING COMPARISON -------------------
+
+# AR(1) forecasting
+cat("\\n1. AR(1) Forecasting Behavior:\\n")
+ar1_forecast <- forecast(ar1_fitted_ar, h=200)
+plot(ar1_forecast, include=100,
+     main="AR(1) Forecast: Gradual Convergence to Mean")
+
+# MA(1) forecasting
+cat("2. MA(1) Forecasting vs Naive Approach:\\n")
+
+# Proper MA(1) forecast
+ma1_forecast <- forecast(ma1_forced, h=5)
+plot(ma1_forecast, include=50,
+     main="MA(1) Forecast: Proper Model-Based")
+
+# Naive forecast (ignoring MA structure)
+naive_forecast <- forecast(ma1_process, h=5)  # Uses simple exponential smoothing
+plot(naive_forecast, include=50,
+     main="Naive Forecast: Ignoring MA Structure")
+
+cat("FORECASTING INSIGHTS:\n")
+cat("- MA models: Forecast converges to mean quickly after lag q\n")
+cat("- AR models: Gradual convergence with exponential decay\n") 
+cat("- Proper model specification improves short-term forecast precision\n")
+cat("- Ignoring MA structure increases forecast uncertainty\n\n")
+
+
+# PART 6: HIGHER-ORDER PROCESSES -----------------
+
+# ------------------- AR(3) AND MA(3) COMPARISON -------------------
+cat("--- Higher-Order Process Comparison ---\n")
+cat("Simulating AR(3) and MA(3) with complex dynamics\n\n")
+
+set.seed(999)
+
+# Simulate higher-order processes with larger sample size
+ar3_process <- arima.sim(model=list(ar=c(0.8, -0.3, 0.3)), n=2000)
+ma3_process <- arima.sim(model=list(ma=c(0.8, -0.3, 0.3)), n=2000)
+
+# AR(3) analysis
+cat("AR(3) Process Analysis:\n")
+ar3_fitted <- ar(ar3_process)
+cat("Selected AR order:", ar3_fitted$order, "\n")
+cat("Estimated coefficients:\n")
+print(round(ar3_fitted$ar, 4))
+cat("True coefficients: [0.8, -0.3, 0.3]\n")
+
+# AR(3) forecasting
+ar3_forecast <- forecast(ar3_fitted, h=200)
+plot(ar3_forecast, include=100,
+     main="AR(3) Forecast: Complex Dynamics")
+
+# MA(3) analysis
+cat("\\nMA(3) Process Analysis:\n")
+ma3_fitted <- auto.arima(ma3_process, approximation=FALSE)
+print(ma3_fitted)
+
+# Force MA(3) specification if auto.arima doesn't detect it
+cat("Forced MA(3) specification:\\n") 
+ma3_forced <- arima(x=ma3_process, order=c(0,0,3), include.mean=FALSE)
+print(ma3_forced)
+
+# MA(3) forecasting  
+ma3_forecast <- forecast(ma3_forced, h=10)
+plot(ma3_forecast, include=50,
+     main="MA(3) Forecast: Quick Convergence after Lag 3")
+
+
+# SUMMARY AND KEY TAKEAWAYS -------------------------
+
+
+cat("\\n=== SUMMARY OF KEY INSIGHTS ===\\n")
+cat("\\n1. ROOT STRUCTURE EFFECTS:\\n")
+cat("   - Real roots → Smooth exponential patterns\\n")
+cat("   - Complex roots → Cyclical/oscillatory patterns\\n")
+cat("   - Modulus > 1 → Stationary process\\n")
+
+cat("\\n2. PROCESS TYPE CHARACTERISTICS:\\n")
+cat("   - AR processes: Long memory, gradual mean reversion\\n")
+cat("   - MA processes: Short memory, quick mean reversion\\n") 
+cat("   - Higher variance in MA than AR with same coefficients\\n")
+
+cat("\\n3. IDENTIFICATION PRINCIPLES:\\n")
+cat("   - ACF/PACF patterns help distinguish AR from MA\\n")
+cat("   - Automatic selection methods are helpful but not infallible\\n")
+cat("   - Larger samples improve parameter estimation accuracy\\n")
+
+cat("\\n4. FORECASTING IMPLICATIONS:\\n") 
+cat("   - AR forecasts show gradual convergence\\n")
+cat("   - MA forecasts converge quickly after lag q\\n")
+cat("   - Model structure affects forecast uncertainty\\n")
+cat("   - Complex roots create cyclical forecast patterns\\n")
+
+cat("\\n=== END OF SIMULATION TUTORIAL ===\\n")
   

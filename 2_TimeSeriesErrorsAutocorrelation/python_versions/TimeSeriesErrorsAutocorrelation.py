@@ -39,7 +39,7 @@ plt.rcParams['font.size'] = 12
 warnings.filterwarnings("ignore")
 
 # Use yfinance for data retrieval
-yf.pdr_override()
+#yf.pdr_override()
 
 # =============================================================================
 # DATA ACQUISITION AND PREPARATION
@@ -404,7 +404,7 @@ def fit_arima_with_regressors(endog, exog, order=(2,0,0), include_mean=True):
         exog = sm.add_constant(exog)
     
     # Fit ARIMA model
-    model = ARIMA(endog, exog=exog, order=order)
+    model = ARIMA(endog, exog=exog, order=order, trend='n')
     results = model.fit()
     
     return results

@@ -1,0 +1,29 @@
+UnitRootTestingExamples.R should do the following:
+Simulate persistent ar(1), ar(2), and random walk without drift with no intercepts, conduct 
+unit root tests with type = none and type = drift (i.e., with and without an intercept) using 
+cadftest() (so that students will know how to include covariates) for the individual test and 
+ur.df() so that students will know how to conduct joint tests with the unit root test, then 
+simulate persistent ar(1) and ar(2) with intercepts and RW without drift and test each with 
+no intercept then with intercept then with trend (type = none, drift, or trend) using both 
+individual and joint tests (cadftest() and ur.df()) and estimate an arima on the RW to show 
+that the intercept estimate is zero, Finally simulate a persistent ar(1) with trend and a RW 
+with drift and do individual and joint tests with drift and trend, and check arima intercept
+Then do an application to oil prices, natural gas prices, and a drilling activity index: 
+download oil, gas, and drilling data, chart them, find their AR(p) lag order and do individual 
+and joint tests with and without trend (what my code calls Case 2 and Case 4). 
+InClassExampleUnitRootsGold.R should do the following: 
+Get macro and oil price data, convert to monthly, merge, test each series for unit roots 
+using individual and joint tests with drift and trend, then download separate gold and 
+macro data and do a similar plotting and unit root testing exercise on each. 
+SeasonalityUnitRootsGasInventories.R should do the following: 
+Read and format natural gas storage inventory data, conduct unit root tests using the 
+cadftest() function that allows for covariates and include Fourier terms to deal with 
+seasonality, residualize the storage inventory series from Fourier terms to get a 
+deseasonalized inventory series and test that for unit roots in order to illustrate different 
+components of the original data series, select an arima model based on the results of the 
+unit root testing and including fourier series terms, do diagnostics on the residuals of that 
+model: acf, pacf, sequential ljung box test, compare results to an automatic model 
+selection procedure for arima terms controlling for fourier terms, forecast on a holdout 
+sample, then conduct on automatic model selection for a SARIMA model without fourier 
+terms and forecast that on a holdout sample and compare this model to previous ones and 
+compare their forecasts. 

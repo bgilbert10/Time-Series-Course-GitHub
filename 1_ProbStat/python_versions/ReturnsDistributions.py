@@ -14,7 +14,14 @@ from scipy.stats import skew, kurtosis, t, jarque_bera, norm
 import yfinance as yf
 import os
 import datetime
+import io
+from io import BytesIO
+import sys
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.gridspec as gridspec
+from IPython.display import HTML, display
+import base64
 
 # Set plots to be displayed inline (for Jupyter notebooks)
 # %matplotlib inline
@@ -23,11 +30,77 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 plt.style.use('seaborn-v0_8-whitegrid')
 plt.rcParams['figure.figsize'] = (12, 6)
 
+# Create a class to capture console output
+class OutputCapture:
+    def __init__(self, filename=None):
+        self.terminal = sys.stdout
+        self.output = io.StringIO()
+        self.filename = filename
+        
+    def start(self):
+        sys.stdout = self
+        
+    def stop(self):
+        sys.stdout = self.terminal
+        
+    def write(self, message):
+        # Handle Unicode characters safely for Windows
+        try:
+            self.terminal.write(message)
+        except UnicodeEncodeError:
+            # Replace problematic characters with ASCII equivalents
+            safe_message = message.replace('μ', 'mu').replace('σ', 'sigma')
+            self.terminal.write(safe_message)
+        
+        # Always store the original message in the buffer
+        self.output.write(message)
+        
+    def flush(self):
+        self.terminal.flush()
+        
+    def get_output(self):
+        # Replace any Unicode characters that might cause issues when writing to HTML
+        output = self.output.getvalue()
+        # Replace common Greek letters used in statistics
+        output = output.replace('μ', 'mu').replace('σ', 'sigma')
+        output = output.replace('α', 'alpha').replace('β', 'beta')
+        output = output.replace('ρ', 'rho').replace('τ', 'tau')
+        return output
+    
+    def save_to_file(self, filename=None):
+        if filename is None:
+            filename = self.filename
+        if filename:
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(self.get_output())
+            print(f"Output saved to {filename}")
+
+# Dictionary to store all figures for the report
+all_figures = {}
+
+"""    
+def get_output(self):
+    return self.output.getvalue()
+
+def save_to_file(self, filename=None):
+    if filename is None:
+        filename = self.filename
+    if filename:
+        with open(filename, 'w') as f:
+            f.write(self.output.getvalue())
+        print(f"Output saved to {filename}")
+        
+# Dictionary to store all figures
+all_figures = {}
+"""
+
 # --------------------- SETUP AND HELPER FUNCTIONS ----------------------
 
 def fetch_stock_data(ticker, start_date='2000-01-03', end_date=None):
     """
     Fetch stock data using yfinance
+    Works for one ticker at a time. 
+    Needs modifying for multiple tickers at once.
     
     Parameters:
     -----------
@@ -46,7 +119,12 @@ def fetch_stock_data(ticker, start_date='2000-01-03', end_date=None):
     if end_date is None:
         end_date = datetime.datetime.now().strftime('%Y-%m-%d')
     
-    data = yf.download(ticker, start=start_date, end=end_date)
+    data = yf.download(ticker, start=start_date, end=end_date, group_by='ticker')
+    
+    # Handle MultiIndex if present
+    data = data[ticker]
+    
+    print(f"Final DataFrame columns: {data.columns}")
     return data
 
 def calculate_returns(prices_df):
@@ -63,15 +141,33 @@ def calculate_returns(prices_df):
     dict
         Dictionary containing different return series
     """
+    # Print available columns for debugging
+    print(f"Available columns in prices_df: {prices_df.columns}")
+    
+    # Use 'Close' column since that's what yfinance provides
+    if 'Close' in prices_df.columns:
+        price_col = 'Close'
+    elif 'Adj Close' in prices_df.columns:
+        price_col = 'Adj Close'
+    else:
+        raise ValueError("Neither 'Close' nor 'Adj Close' found in DataFrame columns")
+    
+    print(f"Using column: {price_col}")
+    
+    # Ensure the price data is numeric
+    prices = pd.to_numeric(prices_df[price_col], errors='coerce')
+    prices = prices.dropna()
+    print(f"First few prices: {prices.head()}")
+    
     # Calculate simple returns
-    daily_simple_returns = 100 * prices_df['Adj Close'].pct_change().dropna()
+    daily_simple_returns = 100 * prices.pct_change().dropna()
     
     # Calculate log returns
-    daily_log_returns = 100 * np.log(prices_df['Adj Close'] / prices_df['Adj Close'].shift(1)).dropna()
+    daily_log_returns = 100 * np.log(prices / prices.shift(1)).dropna()
     
     # Calculate monthly returns
     # Resample to monthly frequency and calculate returns
-    monthly_prices = prices_df['Adj Close'].resample('M').last()
+    monthly_prices = prices.resample('M').last()
     monthly_simple_returns = 100 * monthly_prices.pct_change().dropna()
     monthly_log_returns = 100 * np.log(monthly_prices / monthly_prices.shift(1)).dropna()
     
@@ -96,18 +192,35 @@ def calculate_basic_stats(returns):
     pd.Series
         Series containing summary statistics
     """
+    # Ensure returns is numeric
+    if isinstance(returns, pd.Series):
+        # Make a copy to avoid modifying the original
+        returns_numeric = returns.copy()
+        # Convert to numeric if needed
+        returns_numeric = pd.to_numeric(returns_numeric, errors='coerce')
+        # Drop any NaN values that resulted from conversion
+        returns_numeric = returns_numeric.dropna()
+    else:
+        # Convert to numpy array and ensure it's numeric
+        returns_numeric = np.array(returns, dtype=float)
+        # Remove NaNs
+        returns_numeric = returns_numeric[~np.isnan(returns_numeric)]
+    
+    # Print diagnostic info
+    print(f"After ensuring numeric: Type={type(returns_numeric)}, Length={len(returns_numeric)}")
+    
     stats_dict = {
-        'nobs': len(returns),
-        'min': returns.min(),
-        'max': returns.max(),
-        'mean': returns.mean(),
-        'median': returns.median(),
-        'std_dev': returns.std(),
-        'variance': returns.var(),
-        'skewness': skew(returns),
-        'kurtosis': kurtosis(returns, fisher=True),  # Excess kurtosis (normal = 0)
-        '5%': np.percentile(returns, 5),
-        '95%': np.percentile(returns, 95)
+        'nobs': len(returns_numeric),
+        'min': returns_numeric.min(),
+        'max': returns_numeric.max(),
+        'mean': returns_numeric.mean(),
+        'median': np.median(returns_numeric),
+        'std_dev': returns_numeric.std(),
+        'variance': returns_numeric.var(),
+        'skewness': float(skew(returns_numeric)),
+        'kurtosis': float(kurtosis(returns_numeric, fisher=True)),  # Excess kurtosis (normal = 0)
+        '5%': float(np.percentile(returns_numeric, 5)),
+        '95%': float(np.percentile(returns_numeric, 95))
     }
     
     return pd.Series(stats_dict)
@@ -151,11 +264,11 @@ def test_mean_return(returns, mu=0, alternative='two-sided'):
     elif alternative == 'less' and t_stat <= 0:
         p_value = p_value/2
     
-    print(f"T-test of mean returns (H0: μ = {mu})")
-    print(f"t-statistic: {t_stat:.4f}")
-    print(f"p-value ({alternative}): {p_value:.4f}")
-    print(f"Mean: {returns.mean():.4f}")
-    print(f"Std Error: {returns.std()/np.sqrt(len(returns)):.4f}")
+    print(f"T-test of mean returns (H0: mu = {mu})")
+    print(f"t-statistic: {float(t_stat):.4f}")
+    print(f"p-value ({alternative}): {float(p_value):.4f}")
+    print(f"Mean: {float(returns.mean()):.4f}")
+    print(f"Std Error: {float(returns.std()/np.sqrt(len(returns))):.4f}")
     
     return {'t_stat': t_stat, 'p_value': p_value}
 
@@ -170,6 +283,18 @@ def plot_return_distribution(returns, title="Returns Distribution"):
     title : str
         Plot title
     """
+    # Ensure returns is numeric
+    if isinstance(returns, pd.Series):
+        # Make a copy to avoid modifying the original
+        returns = returns.copy()
+        # Convert to numeric if needed
+        returns = pd.to_numeric(returns, errors='coerce')
+        # Drop any NaN values that resulted from conversion
+        returns = returns.dropna()
+    else:
+        # Convert to numpy array and ensure it's numeric
+        returns = np.array(returns, dtype=float)
+    
     fig, axes = plt.subplots(1, 2, figsize=(15, 6))
     
     # Plot histogram
@@ -178,21 +303,23 @@ def plot_return_distribution(returns, title="Returns Distribution"):
     axes[0].set_xlabel("Returns (%)")
     axes[0].set_ylabel("Frequency")
     
-    # Add normal curve to histogram
-    x = np.linspace(min(returns), max(returns), 100)
-    mean, std = returns.mean(), returns.std()
+    # Add normal curve to histogram - using numpy min/max for safety
+    x = np.linspace(np.nanmin(returns), np.nanmax(returns), 100)
+    mean, std = np.nanmean(returns), np.nanstd(returns)
     normal_curve = stats.norm.pdf(x, mean, std)
     axes[0].plot(x, normal_curve, 'r-', linewidth=2, label='Normal Distribution')
     axes[0].legend()
     
     # Plot empirical density
-    returns_series = pd.Series(returns)
+    # If it's already a Series, skip conversion to avoid issues
+    if not isinstance(returns, pd.Series):
+        returns_series = pd.Series(returns)
+    else:
+        returns_series = returns
+    
     returns_series.plot.kde(ax=axes[1], linewidth=2, label='Empirical')
     
-    # Add normal curve to density plot
-    x = np.linspace(min(returns), max(returns), 100)
-    mean, std = returns.mean(), returns.std()
-    normal_curve = stats.norm.pdf(x, mean, std)
+    # Add normal curve to density plot - using same x range as above
     axes[1].plot(x, normal_curve, 'r--', linewidth=2, label='Normal')
     
     axes[1].set_title(f"{title} - Density")
@@ -201,7 +328,16 @@ def plot_return_distribution(returns, title="Returns Distribution"):
     axes[1].legend()
     
     plt.tight_layout()
+    
+    # Store the figure in the global dictionary
+    global all_figures
+    fig_id = f"dist_{title.replace(' ', '_').lower()}"
+    all_figures[fig_id] = fig
+    
+    # Show the plot in Spyder
     plt.show()
+    
+    return fig
 
 def test_normality(returns, name="Returns"):
     """
@@ -225,8 +361,8 @@ def test_normality(returns, name="Returns"):
     # Jarque-Bera test
     jb_stat, jb_pvalue = jarque_bera(returns)
     print(f"Jarque-Bera Test:")
-    print(f"Statistic: {jb_stat:.4f}")
-    print(f"p-value: {jb_pvalue:.6f}")
+    print(f"Statistic: {float(jb_stat):.4f}")
+    print(f"p-value: {float(jb_pvalue):.6f}")
     print(f"Conclusion: {'Reject' if jb_pvalue < 0.05 else 'Fail to reject'} normality at 5% significance level")
     
     # Skewness test
@@ -236,17 +372,17 @@ def test_normality(returns, name="Returns"):
     skew_pvalue = 2 * (1 - norm.cdf(abs(skew_stat)))
     
     print(f"\nSkewness Test:")
-    print(f"Skewness: {s:.4f}")
-    print(f"Test statistic: {skew_stat:.4f}")
-    print(f"p-value: {skew_pvalue:.6f}")
+    print(f"Skewness: {float(s):.4f}")
+    print(f"Test statistic: {float(skew_stat):.4f}")
+    print(f"p-value: {float(skew_pvalue):.6f}")
     
     # Kurtosis test
     k = kurtosis(returns, fisher=True)  # Excess kurtosis (normal = 0)
     kurt_stat = k / np.sqrt(24/n)
     
     print(f"\nExcess Kurtosis Test:")
-    print(f"Excess Kurtosis: {k:.4f}")
-    print(f"Test statistic: {kurt_stat:.4f}")
+    print(f"Excess Kurtosis: {float(k):.4f}")
+    print(f"Test statistic: {float(kurt_stat):.4f}")
     print("-" * 50)
     
     return {
@@ -283,6 +419,16 @@ def analyze_ibm_returns(data_path=None):
     # Calculate simple returns stats
     print("\nIBM Simple Returns Analysis:")
     simple_ibm_returns = ibm_returns
+    
+    # Debug information
+    print(f"Type of simple_ibm_returns: {type(simple_ibm_returns)}")
+    print(f"First few values: {simple_ibm_returns.head() if hasattr(simple_ibm_returns, 'head') else simple_ibm_returns[:5]}")
+    
+    # Convert to numeric if needed
+    if isinstance(simple_ibm_returns, pd.Series):
+        simple_ibm_returns = pd.to_numeric(simple_ibm_returns, errors='coerce')
+        print(f"After conversion - First few values: {simple_ibm_returns.head()}")
+    
     stats_simple = calculate_basic_stats(simple_ibm_returns)
     print(stats_simple)
     
@@ -336,7 +482,7 @@ def analyze_energy_stocks():
     
     # Plot XLE price and returns
     plt.figure(figsize=(12, 6))
-    xle_data['Adj Close'].plot()
+    xle_data['Close'].plot()
     plt.title("SPDR Energy ETF (XLE) Prices")
     plt.xlabel("Date")
     plt.ylabel("Price ($)")
@@ -442,9 +588,114 @@ def analyze_brk_returns(brk_returns):
     # Test normality
     test_normality(brk_returns, "Berkshire Hathaway Daily Log Returns")
 
+# -------------------- REPORT GENERATION -------------------------
+
+def figure_to_base64(fig):
+    """Convert a matplotlib figure to base64 encoded string"""
+    buf = BytesIO()
+    fig.savefig(buf, format='png', dpi=300, bbox_inches='tight')
+    buf.seek(0)
+    img_str = base64.b64encode(buf.read()).decode('utf-8')
+    return img_str
+
+def generate_html_report(output_text, figures_dict, filename='returns_analysis_report.html'):
+    """Generate an HTML report with all output and figures"""
+    # Process the output text to handle any Unicode characters (already done in OutputCapture)
+    # HTML escape the output text
+    from html import escape
+    escaped_output = escape(output_text)
+    
+    html_content = f"""<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Returns Analysis Report</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                margin: 40px;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            h1, h2, h3 {{
+                color: #2c3e50;
+            }}
+            pre {{
+                background-color: #f8f9fa;
+                padding: 15px;
+                border-radius: 5px;
+                overflow-x: auto;
+                white-space: pre-wrap;
+                font-family: monospace;
+            }}
+            .figure {{
+                margin: 20px 0;
+                text-align: center;
+            }}
+            .figure img {{
+                max-width: 100%;
+                height: auto;
+            }}
+            .figure-caption {{
+                margin-top: 10px;
+                font-style: italic;
+                color: #666;
+            }}
+            .section {{
+                margin-bottom: 40px;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Returns Distribution Analysis Report</h1>
+        <div class="section">
+            <h2>Console Output</h2>
+            <pre>{escaped_output}</pre>
+        </div>
+        <div class="section">
+            <h2>Figures</h2>
+    """
+    
+    # Add all figures to the HTML
+    for fig_id, fig in figures_dict.items():
+        img_str = figure_to_base64(fig)
+        fig_title = fig_id.replace('_', ' ').title()
+        html_content += f"""
+            <div class="figure">
+                <h3>{fig_title}</h3>
+                <img src="data:image/png;base64,{img_str}" alt="{fig_title}">
+            </div>
+        """
+    
+    # Add the current timestamp for the footer
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    html_content += f"""
+        </div>
+        <footer>
+            <p>Generated on {current_time}</p>
+        </footer>
+    </body>
+    </html>
+    """
+    
+    # Save the HTML file with UTF-8 encoding to handle Unicode characters
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    
+    print(f"\nHTML report saved to: {os.path.abspath(filename)}")
+
 # -------------------- EXAMPLE USAGE -------------------------
 
 if __name__ == "__main__":
+    # Initialize output capture
+    output_capture = OutputCapture()
+    output_capture.start()
+    
     print("\nPython version of ReturnsDistributions.R")
     print("=" * 50)
     
@@ -465,3 +716,11 @@ if __name__ == "__main__":
     print("due to differences in data sources and package implementations.")
     print("The Python version uses Yahoo Finance data by default, while the R")
     print("version used data from text files.")
+    
+    # Stop capturing output
+    output_capture.stop()
+    
+    # Generate HTML report with all output and figures
+    generate_html_report(output_capture.get_output(), all_figures)
+    
+    print("\nAnalysis complete! The HTML report contains all results and figures.")

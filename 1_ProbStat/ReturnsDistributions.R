@@ -85,7 +85,8 @@ test_normality = function(returns, name="Returns") {
   # Test kurtosis
   k4 = kurtosis(returns)
   kurt_test = k4/sqrt(24/sample_size)
-  cat("Kurtosis:", k4, "| Test statistic:", kurt_test, "\n")
+  p_value_kurt = 2*(pnorm(abs(kurt_test), lower.tail=FALSE))
+  cat("Kurtosis:", k4, "| Test statistic:", kurt_test, "| p-value:", p_value_kurt, "\n")
   cat("------------------------------------------------\n\n")
 }
 

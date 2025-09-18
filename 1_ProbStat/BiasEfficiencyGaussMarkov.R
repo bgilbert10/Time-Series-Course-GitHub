@@ -156,7 +156,7 @@ head(simulated_data)
 # Check sample statistics
 cov(simulated_data)
 cor(simulated_data)
-scatterplotMatrix(simulated_data)
+#scatterplotMatrix(simulated_data)
 
 # Generate linear outcome
 outcome_y <- 10 - 6*simulated_data$x1 + 5*simulated_data$x2 + simulated_data$e
